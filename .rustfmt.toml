@@ -1,0 +1,7 @@
+edition = "2021"
+style_edition = "2021"
+use_small_heuristics = "Max"
+newline_style = "Unix"
+wrap_comments = true
+max_width = 90
+use_comma_separator = true
