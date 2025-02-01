@@ -1,6 +1,7 @@
 use chrono::Utc;
 use serde::Serialize;
 
+pub mod thread;
 pub mod user;
 
 pub type ApiResponse<T> = Result<SuccessResponse<T>, ErrorResponse>;
