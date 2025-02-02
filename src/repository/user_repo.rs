@@ -67,6 +67,7 @@ impl UserRepositoryTrait for UserRepository {
     }
 
     async fn find_user_by_handle(&self, handle: &str) -> RepositoryResult<User> {
+        // TODO: !is_profile_complete user handling
         self.find_user_generic("handle", handle).await
     }
 

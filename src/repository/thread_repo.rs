@@ -1,13 +1,13 @@
 use async_trait::async_trait;
 use chrono::Utc;
-use sqlx::SqlitePool;
+use sqlx::{Execute, QueryBuilder, Sqlite, SqlitePool};
 use std::sync::Arc;
 
 use super::RepositoryResult;
 use crate::{
     domain::{
         dto::thread::{RequestCreateThread, RequestUpdateThread},
-        model::thread::Thread,
+        model::{cursor_claims::CursorClaims, thread::Thread},
     },
     error::CustomError,
 };
@@ -16,19 +16,20 @@ use crate::{
 pub trait ThreadRepositoryTrait: Send + Sync {
     async fn create_thread(
         &self,
+        user_id: i64,
         new_thread: RequestCreateThread,
     ) -> RepositoryResult<bool>;
     async fn get_thread_by_id(&self, id: i64) -> RepositoryResult<Thread>;
     async fn list_thread(
         &self,
-        cursor: &str,
+        cursor: CursorClaims,
         limit: Option<i64>,
     ) -> RepositoryResult<Vec<Thread>>;
     async fn list_thread_by_user_id(
         &self,
-        id: i64,
-        cursor: &str,
-        limit: Option<i64>,
+        user_id: i64,
+        cursor: CursorClaims,
+        limit: i64,
     ) -> RepositoryResult<Vec<Thread>>;
     async fn update_thread(
         &self,
@@ -46,22 +47,23 @@ pub struct ThreadRepository {
 impl ThreadRepositoryTrait for ThreadRepository {
     async fn create_thread(
         &self,
+        user_id: i64,
         new_thread: RequestCreateThread,
     ) -> RepositoryResult<bool> {
-        let title = new_thread.title.unwrap_or_default();
-        let parent_thread = new_thread.parent_thread.unwrap_or_default();
         let result = sqlx::query(
-            "INSERT INTO thread (title, content, parent_thread) VALUES (?, ?, ?)",
+            "INSERT INTO thread (user_id, title, content, parent_thread) VALUES (?, ?, ?, ?)",
         )
-        .bind(&title)
+        .bind(user_id)
+        .bind(new_thread.title)
         .bind(&new_thread.content)
-        .bind(parent_thread)
+        .bind(new_thread.parent_thread)
         .execute(&*self.conn)
         .await;
 
         match result {
             Ok(_) => Ok(true),
             Err(err) => {
+                println!("{}", err);
                 tracing::error!("Database error: {}", err);
                 Err(CustomError::DatabaseError)
             }
@@ -84,7 +86,7 @@ impl ThreadRepositoryTrait for ThreadRepository {
 
     async fn list_thread(
         &self,
-        cursor: &str,
+        cursor: CursorClaims,
         limit: Option<i64>,
     ) -> RepositoryResult<Vec<Thread>> {
         // TODO: Cursor based pagination
@@ -107,22 +109,43 @@ impl ThreadRepositoryTrait for ThreadRepository {
 
     async fn list_thread_by_user_id(
         &self,
-        id: i64,
-        cursor: &str,
-        limit: Option<i64>,
+        user_id: i64,
+        cursor: CursorClaims,
+        limit: i64,
     ) -> RepositoryResult<Vec<Thread>> {
-        let limit = limit.unwrap_or(10);
-        let thread_list = sqlx::query_as::<_, Thread>(
-            "SELECT * FROM thread WHERE user_id = ? AND is_deleted = FALSE LIMIT ?",
-        )
-        .bind(id)
-        .bind(limit)
-        .fetch_all(&*self.conn)
-        .await
-        .map_err(|err| {
+        println!("{:?}", cursor);
+        // TODO: Using SeaQL
+        let mut query = QueryBuilder::<Sqlite>::new(
+            r#"
+        SELECT 
+            *
+        FROM thread
+        WHERE is_deleted = FALSE AND user_id = 
+        "#,
+        );
+        query.push_bind(user_id);
+
+        if let Some(created_at) = cursor.created_at {
+            query.push(" AND ( created_at < ").push_bind(created_at);
+            query.push(" OR created_at = ").push_bind(created_at);
+            query.push(" ) ");
+        }
+
+        if let Some(id) = cursor.id {
+            query.push(" AND id > ").push_bind(id);
+        }
+
+        query.push(" ORDER BY created_at DESC, id DESC LIMIT ").push_bind(limit);
+
+        let query = query.build_query_as::<Thread>();
+        println!("{}", query.sql());
+
+        let thread_list = query.fetch_all(&*self.conn).await.map_err(|err| {
+            println!("{err}");
             tracing::error!("Error finding thread: {}", err);
             CustomError::DatabaseError
         })?;
+
         Ok(thread_list)
     }
 

@@ -8,14 +8,19 @@ use axum::{
 use serde_json::json;
 use sqlx::SqlitePool;
 
-use crate::{api::user_ctrl, middleware::log_middleware::mw_logging_request};
+use crate::{
+    api::{thread_ctrl, user_ctrl},
+    middleware::log_middleware::mw_logging_request,
+};
 
 pub async fn routes_all(db_pool: &SqlitePool) -> Router {
     let user_state = user_ctrl::di(db_pool);
+    let thread_state = thread_ctrl::di(db_pool);
 
     let router_all = Router::new()
         .route("/ping", get(health_check_handler))
         .nest("/user", user_ctrl::routes(user_state.clone()).await)
+        .nest("/thread", thread_ctrl::routes(thread_state.clone()).await)
         .fallback(fallback_handler);
 
     let app = Router::new()
