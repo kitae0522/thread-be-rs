@@ -62,7 +62,7 @@ impl FollowRepositoryTrait for FollowRepository {
         user_id: i64,
         target_user_id: i64,
     ) -> RepositoryResult<bool> {
-        let _ = sqlx::query("INSERT INTO thread (user_id, follower_id) VALUES (?, ?)")
+        let _ = sqlx::query("INSERT INTO follow (user_id, follower_id) VALUES (?, ?)")
             .bind(user_id)
             .bind(target_user_id)
             .execute(&*self.conn)
