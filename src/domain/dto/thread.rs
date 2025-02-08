@@ -17,9 +17,3 @@ pub struct RequestUpdateThread {
     pub content: String,
     pub parent_thread: i64,
 }
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct RequestListThreadByHandle {
-    pub cursor: Option<String>,
-    pub limit: Option<i64>,
-}

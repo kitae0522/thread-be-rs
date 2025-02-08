@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     middleware,
     response::IntoResponse,
     routing::{get, post, put},
@@ -14,21 +14,22 @@ use crate::{
     domain::{
         dto::{
             user::{RequestSignin, RequestSignup, RequestUpsertProfile},
-            SuccessResponse,
+            RequestCursorParmas, SuccessResponse,
         },
         model::jwt_claims::JwtClaims,
     },
     error::CustomError,
     middleware::auth_middleware::mw_require_auth,
-    repository::user_repo::UserRepository,
+    repository::{follow_repo::FollowRepository, user_repo::UserRepository},
     services::user_service::UserService,
 };
 
 pub fn di(db_pool: &SqlitePool) -> AppState {
     let db_pool = Arc::new(db_pool.clone());
 
-    let user_repo = Arc::new(UserRepository { conn: db_pool });
-    let user_service = Arc::new(UserService::new(user_repo));
+    let user_repo = Arc::new(UserRepository { conn: db_pool.clone() });
+    let follow_repo = Arc::new(FollowRepository { conn: db_pool });
+    let user_service = Arc::new(UserService::new(user_repo, follow_repo));
 
     AppState { user_service }
 }
@@ -43,6 +44,8 @@ pub async fn routes(state: AppState) -> Router {
         .route("/profile", get(me))
         .route("/profile", put(upsert_profile))
         .route("/{handle}", get(get_user))
+        .route("/{handle}/followers", get(list_user_follower))
+        .route("/{handle}/following", get(list_user_following))
         .layer(middleware::from_fn(mw_require_auth))
         .with_state(state);
 
@@ -114,6 +117,46 @@ pub async fn get_user(
         Ok(profile) => Ok(Json(SuccessResponse::new(
             &format!("Success to fetch '{}' profile", handle),
             Some(profile),
+        ))),
+        Err(err) => Err(err),
+    }
+}
+
+// GET api/user/{handle}/followers
+pub async fn list_user_follower(
+    State(state): State<AppState>,
+    Path(handle): Path<String>,
+    Query(params): Query<RequestCursorParmas>,
+) -> Result<impl IntoResponse, CustomError> {
+    println!("->> {:<12} - handler_list_user_follower", "HANDLER");
+    match state
+        .user_service
+        .list_user_follower(&handle, params.cursor.as_deref(), params.limit)
+        .await
+    {
+        Ok(thread_list) => Ok(Json(SuccessResponse::new(
+            "Success to fetch follower list",
+            Some(thread_list),
+        ))),
+        Err(err) => Err(err),
+    }
+}
+
+// GET api/user/{handle}/following
+pub async fn list_user_following(
+    State(state): State<AppState>,
+    Path(handle): Path<String>,
+    Query(params): Query<RequestCursorParmas>,
+) -> Result<impl IntoResponse, CustomError> {
+    println!("->> {:<12} - handler_list_user_following", "HANDLER");
+    match state
+        .user_service
+        .list_user_following(&handle, params.cursor.as_deref(), params.limit)
+        .await
+    {
+        Ok(following_list) => Ok(Json(SuccessResponse::new(
+            "Success to fetch following list",
+            Some(following_list),
         ))),
         Err(err) => Err(err),
     }

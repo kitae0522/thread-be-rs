@@ -1,5 +1,5 @@
 use chrono::Utc;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 pub mod thread;
 pub mod user;
@@ -26,6 +26,12 @@ pub struct ErrorResponse {
 pub struct ErrorDetail {
     field: String,
     error: String,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct RequestCursorParmas {
+    pub cursor: Option<String>,
+    pub limit: Option<i64>,
 }
 
 impl<T> SuccessResponse<T> {

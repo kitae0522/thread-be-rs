@@ -12,11 +12,8 @@ use sqlx::SqlitePool;
 use crate::{
     config::app_state::ThreadState,
     domain::{
-        dto::{
-            thread::{RequestCreateThread, RequestListThreadByHandle},
-            SuccessResponse,
-        },
-        model::{cursor_claims::CursorClaims, jwt_claims::JwtClaims},
+        dto::{thread::RequestCreateThread, RequestCursorParmas, SuccessResponse},
+        model::jwt_claims::JwtClaims,
     },
     error::CustomError,
     middleware::auth_middleware::mw_require_auth,
@@ -87,7 +84,7 @@ pub async fn get_thread_by_id(
 pub async fn list_thread_by_user_handle(
     State(state): State<ThreadState>,
     Path(user_handle): Path<String>,
-    Query(params): Query<RequestListThreadByHandle>,
+    Query(params): Query<RequestCursorParmas>,
 ) -> Result<impl IntoResponse, CustomError> {
     println!("->> {:<12} - handler_list_thread_by_user_handle", "HANDLER");
     match state
