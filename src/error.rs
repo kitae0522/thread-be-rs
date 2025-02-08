@@ -20,6 +20,8 @@ pub enum CustomError {
     ProfileNotCreated,
     InvalidQuery,
     NotFollowed,
+    TrySelfFollow,
+    AlreadyFollowed,
 }
 
 impl IntoResponse for CustomError {
@@ -73,11 +75,24 @@ impl IntoResponse for CustomError {
                     .into_response()
             }
             CustomError::NotFollowed => (
-                StatusCode::NOT_FOUND,
+                StatusCode::BAD_REQUEST,
                 Json(ErrorResponse::new(
                     "You have not followed this user. Please check your following list.",
                     None,
                 )),
+            )
+                .into_response(),
+            CustomError::TrySelfFollow => (
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse::new(
+                    "You tried to follow yourself. You cannot follow yourself.",
+                    None,
+                )),
+            )
+                .into_response(),
+            CustomError::AlreadyFollowed => (
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse::new("You have already followed that user", None)),
             )
                 .into_response(),
         }

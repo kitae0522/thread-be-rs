@@ -1,6 +1,9 @@
 use std::sync::Arc;
 
-use crate::services::{thread_service::ThreadService, user_service::UserService};
+use crate::services::{
+    follow_service::FollowService, thread_service::ThreadService,
+    user_service::UserService,
+};
 
 #[derive(Clone)]
 pub struct AppState {
@@ -15,4 +18,9 @@ pub struct UserState {
 #[derive(Clone)]
 pub struct ThreadState {
     pub thread_service: Arc<ThreadService>,
+}
+
+#[derive(Clone)]
+pub struct FollowState {
+    pub follow_service: Arc<FollowService>,
 }

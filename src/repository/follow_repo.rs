@@ -62,7 +62,7 @@ impl FollowRepositoryTrait for FollowRepository {
         user_id: i64,
         target_user_id: i64,
     ) -> RepositoryResult<bool> {
-        sqlx::query("INSERT INTO thread (user_id, follower_id) VALUES (?, ?)")
+        let _ = sqlx::query("INSERT INTO thread (user_id, follower_id) VALUES (?, ?)")
             .bind(user_id)
             .bind(target_user_id)
             .execute(&*self.conn)
@@ -77,11 +77,7 @@ impl FollowRepositoryTrait for FollowRepository {
         user_id: i64,
         target_user_id: i64,
     ) -> RepositoryResult<bool> {
-        if !self.is_followed_user(user_id, target_user_id).await? {
-            return Err(CustomError::NotFollowed);
-        }
-
-        sqlx::query("DELETE FROM follow WHERE user_id = ? AND follower_id = ?")
+        let _ = sqlx::query("DELETE FROM follow WHERE user_id = ? AND follower_id = ?")
             .bind(user_id)
             .bind(target_user_id)
             .execute(&*self.conn)
