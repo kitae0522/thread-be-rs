@@ -36,6 +36,7 @@ pub async fn routes(state: ThreadState) -> Router {
 
     let restricted_router = Router::new()
         .route("/", post(create_thread))
+        .route("/feed", get(feed_thread))
         .route("/{id}", get(get_thread_by_id))
         .route("/user/{user_handle}", get(list_thread_by_user_handle))
         .layer(middleware::from_fn(mw_require_auth))
@@ -62,6 +63,26 @@ pub async fn create_thread(
             }
             Err(CustomError::InternalError("Failed to create thread".to_string()))
         }
+        Err(err) => Err(err),
+    }
+}
+
+// GET api/thread/feed
+pub async fn feed_thread(
+    State(state): State<ThreadState>,
+    Extension(token_context): Extension<JwtClaims>,
+    Query(params): Query<RequestCursorParmas>,
+) -> Result<impl IntoResponse, CustomError> {
+    println!("->> {:<12} - handler_feed_thread", "HANDLER");
+    match state
+        .thread_service
+        .list_recommend_thread(token_context.id, params.cursor.as_deref(), params.limit)
+        .await
+    {
+        Ok(thread_list) => Ok(Json(SuccessResponse::new(
+            "Success to fetch thread list",
+            Some(thread_list),
+        ))),
         Err(err) => Err(err),
     }
 }

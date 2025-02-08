@@ -65,4 +65,35 @@ impl ThreadService {
             self.thread_repo.list_thread_by_user_id(user.id, claims, limit).await?;
         Ok(thread_list)
     }
+
+    pub async fn list_recommend_thread(
+        &self,
+        user_id: i64,
+        cursor: Option<&str>,
+        limit: Option<i64>,
+    ) -> Result<Vec<Thread>, CustomError> {
+        let cursor = cursor.unwrap_or_default();
+        let claims = CursorClaims::decode_cursor(cursor).unwrap_or_default();
+        let limit = limit.unwrap_or(10);
+
+        let follow_based_threads = self
+            .thread_repo
+            .list_thread_by_following(user_id, claims.clone(), limit / 2)
+            .await?;
+        let popularity_score_based_threads = self
+            .thread_repo
+            .list_thread_by_popularity_score(claims.clone(), limit / 3)
+            .await?;
+        let latest_created_threads =
+            self.thread_repo.list_thread_by_latest_created(claims, limit / 5).await?;
+
+        let mut thread_list = Vec::new();
+        thread_list.extend(follow_based_threads);
+        thread_list.extend(popularity_score_based_threads);
+        thread_list.extend(latest_created_threads);
+
+        thread_list.sort_by(|item_1, item_2| item_2.created_at.cmp(&item_1.created_at));
+
+        Ok(thread_list)
+    }
 }
