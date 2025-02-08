@@ -19,6 +19,7 @@ pub enum CustomError {
     Unauthorized(String),
     ProfileNotCreated,
     InvalidQuery,
+    NotFollowed,
 }
 
 impl IntoResponse for CustomError {
@@ -71,6 +72,14 @@ impl IntoResponse for CustomError {
                 (StatusCode::BAD_REQUEST, Json(ErrorResponse::new("Invalid Query", None)))
                     .into_response()
             }
+            CustomError::NotFollowed => (
+                StatusCode::NOT_FOUND,
+                Json(ErrorResponse::new(
+                    "You have not followed this user. Please check your following list.",
+                    None,
+                )),
+            )
+                .into_response(),
         }
     }
 }
