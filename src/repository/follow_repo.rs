@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use sqlx::SqlitePool;
+use sqlx::PgPool;
 use std::sync::Arc;
 
 use super::RepositoryResult;
@@ -28,7 +28,7 @@ pub trait FollowRepositoryTrait: Send + Sync {
         target_user_id: i64,
     ) -> RepositoryResult<bool>;
 
-    async fn get_follow_status(&self, user_id: i64) -> RepositoryResult<(u64, u64)>;
+    async fn get_follow_status(&self, user_id: i64) -> RepositoryResult<(i64, i64)>;
 
     async fn list_following(
         &self,
@@ -52,7 +52,7 @@ pub trait FollowRepositoryTrait: Send + Sync {
 }
 
 pub struct FollowRepository {
-    pub conn: Arc<SqlitePool>,
+    pub conn: Arc<PgPool>,
 }
 
 #[async_trait]
@@ -104,8 +104,8 @@ impl FollowRepositoryTrait for FollowRepository {
         Ok(count > 0)
     }
 
-    async fn get_follow_status(&self, user_id: i64) -> RepositoryResult<(u64, u64)> {
-        let (followers_count, following_count) = sqlx::query_as::<_, (u64, u64)>(
+    async fn get_follow_status(&self, user_id: i64) -> RepositoryResult<(i64, i64)> {
+        let (followers_count, following_count) = sqlx::query_as::<_, (i64, i64)>(
             "SELECT 
                 (SELECT COUNT(*) FROM follow WHERE follower_id = ?) AS followers_count,
                 (SELECT COUNT(*) FROM follow WHERE user_id = ?) AS following_count",

@@ -9,8 +9,8 @@ VALUES
         '@elonmusk',
         'https://upload.wikimedia.org/wikipedia/commons/c/cb/Elon_Musk_Royal_Society_crop.jpg',
         '',
-        1,
-        0,
+        TRUE,
+        FALSE,
         NULL,
         '2025-02-08 13:13:00',
         '2025-02-08 13:19:27'
@@ -27,8 +27,8 @@ VALUES
         '@tedsong',
         '',
         '',
-        1,
-        0,
+        TRUE,
+        FALSE,
         NULL,
         '2025-02-08 13:13:34',
         '2025-02-08 13:13:34'
@@ -45,8 +45,8 @@ VALUES
         '@andrewNg',
         'https://aifund.ai/wp-content/uploads/2021/08/Team-PhotosAndrew-NG.jpg',
         'Hello',
-        1,
-        0,
+        TRUE,
+        FALSE,
         NULL,
         '2025-02-08 13:14:34',
         '2025-02-08 13:14:34'
@@ -61,19 +61,19 @@ VALUES
 
 INSERT INTO thread (user_id, title, content, parent_thread, is_deleted)
 VALUES
-    (1, 'First Thread', 'This is the first thread content.', NULL, 0),
-    (2, 'Second Thread', 'This is the second thread content.', NULL, 0),
-    (3, 'Reply to First', 'This is a reply to the first thread.', 1, 0),
-    (1, 'Third Thread', 'This is the third thread content', NULL, 0),
-    (1, 'Deleted Thread', 'This is the deleted thread content', NULL, 1);
+    (1, 'First Thread', 'This is the first thread content.', NULL, FALSE),
+    (2, 'Second Thread', 'This is the second thread content.', NULL, FALSE),
+    (3, 'Reply to First', 'This is a reply to the first thread.', 1, FALSE),
+    (1, 'Third Thread', 'This is the third thread content', NULL, FALSE),
+    (1, 'Deleted Thread', 'This is the deleted thread content', NULL, TRUE);
 
 INSERT INTO upvote (user_id, thread_id, reaction)
 VALUES
     (1, 1, 'UP'),   
     (2, 1, 'DOWN'), 
-    (3, 2, 'UP'),   
-    (1, 3, 'UP');   
-
+    (3, 2, 'DOWN'),   
+    (1, 3, 'UP'),
+    (1, 2, 'DOWN');
 
 INSERT INTO views (thread_id, view_count)
 VALUES

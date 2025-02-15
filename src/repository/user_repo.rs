@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use sqlx::SqlitePool;
+use sqlx::PgPool;
 use std::sync::Arc;
 
 use super::RepositoryResult;
@@ -31,7 +31,7 @@ pub trait UserRepositoryTrait: Send + Sync {
 }
 
 pub struct UserRepository {
-    pub conn: Arc<SqlitePool>,
+    pub conn: Arc<PgPool>,
 }
 
 #[async_trait]

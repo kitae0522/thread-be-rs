@@ -6,14 +6,14 @@ use axum::{
     Router,
 };
 use serde_json::json;
-use sqlx::SqlitePool;
+use sqlx::PgPool;
 
 use crate::{
     api::{follow_ctrl, thread_ctrl, user_ctrl},
     middleware::log_middleware::mw_logging_request,
 };
 
-pub async fn routes_all(db_pool: &SqlitePool) -> Router {
+pub async fn routes_all(db_pool: &PgPool) -> Router {
     let user_state = user_ctrl::di(db_pool);
     let thread_state = thread_ctrl::di(db_pool);
     let follow_state = follow_ctrl::di(db_pool);

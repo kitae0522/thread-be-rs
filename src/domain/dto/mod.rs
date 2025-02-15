@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 pub mod thread;
 pub mod user;
 
-pub type ApiResponse<T> = Result<SuccessResponse<T>, ErrorResponse>;
+// pub type ApiResponse<T> = Result<SuccessResponse<T>, ErrorResponse>;
 
 #[derive(Serialize)]
 pub struct SuccessResponse<T> {

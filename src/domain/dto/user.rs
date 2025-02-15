@@ -30,9 +30,8 @@ pub struct ResponseProfile {
     pub bio: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
-
-    pub follower_count: u64,
-    pub following_count: u64,
+    pub follower_count: i64,
+    pub following_count: i64,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

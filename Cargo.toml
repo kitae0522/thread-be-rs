@@ -9,7 +9,8 @@ tokio = { version = "1.43.0", features = ["macros", "rt-multi-thread"] }
 axum = { version = "0.8.1", features = ["macros"] }
 # sql
 sqlx = { version = "0.8.3", features = [
-    "sqlite",
+    "postgres",
+    # "sqlite",
     "runtime-tokio-rustls",
     "chrono",
 ] }

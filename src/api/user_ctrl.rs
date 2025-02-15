@@ -7,7 +7,7 @@ use axum::{
     routing::{get, post, put},
     Extension, Json, Router,
 };
-use sqlx::SqlitePool;
+use sqlx::PgPool;
 
 use crate::{
     config::app_state::AppState,
@@ -24,7 +24,7 @@ use crate::{
     services::user_service::UserService,
 };
 
-pub fn di(db_pool: &SqlitePool) -> AppState {
+pub fn di(db_pool: &PgPool) -> AppState {
     let db_pool = Arc::new(db_pool.clone());
 
     let user_repo = Arc::new(UserRepository { conn: db_pool.clone() });
