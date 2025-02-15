@@ -79,7 +79,19 @@ impl ThreadRepositoryTrait for ThreadRepository {
 
     async fn get_thread_by_id(&self, id: i64) -> RepositoryResult<Thread> {
         let thread = sqlx::query_as::<_, Thread>(
-            "SELECT * FROM thread WHERE id = ? AND is_deleted = FALSE",
+            r#"
+            SELECT
+                t.*,
+                (COALESCE(SUM(CASE WHEN u.reaction = 'UP' THEN 1 ELSE 0 END), 0) +
+                COALESCE(SUM(CASE WHEN u.reaction = 'DOWN' THEN -1 ELSE 0 END), 0)) AS upvote,
+                COALESCE(v.view_count, 0) AS views
+            FROM thread t
+            LEFT JOIN upvote u ON u.thread_id = t.id
+            LEFT JOIN views v ON v.thread_id = t.id
+            WHERE t.id = ?
+            AND t.is_deleted = 0
+            GROUP BY t.id;
+            "#,
         )
         .bind(id)
         .fetch_one(&*self.conn)
@@ -101,13 +113,19 @@ impl ThreadRepositoryTrait for ThreadRepository {
         let thread_list = sqlx::query_as::<_, Thread>(
             r#"
             SELECT
-                *
-            FROM thread
-            WHERE is_deleted = FALSE
-            AND user_id = ?
-            AND created_at < ?
+                t.*,
+                (COALESCE(SUM(CASE WHEN u.reaction = 'UP' THEN 1 ELSE 0 END), 0) +
+                COALESCE(SUM(CASE WHEN u.reaction = 'DOWN' THEN -1 ELSE 0 END), 0)) AS upvote,
+                COALESCE(v.view_count, 0) AS views
+            FROM thread t
+            LEFT JOIN upvote u ON u.thread_id = t.id
+            LEFT JOIN views v ON v.thread_id = t.id
+            WHERE t.user_id = ?
+            AND t.created_at < ?
             AND id > ?
-            ORDER BY created_at DESC, id DESC
+            AND t.is_deleted = FALSE
+            GROUP BY t.id
+            ORDER BY t.created_at DESC, id DESC
             LIMIT ?
             "#,
         )
@@ -212,12 +230,13 @@ impl ThreadRepositoryTrait for ThreadRepository {
             r#"
             SELECT 
                 t.*, 
-                (COALESCE(COUNT(l.id), 0) * 2 + COALESCE(COUNT(v.id), 0) * 0.5) 
-                / POWER((UNIX_TIMESTAMP(NOW()) - UNIX_TIMESTAMP(t.created_at)) / 3600 + 2, 1.5) AS adj_score
-            FROM threads t
-            LEFT JOIN upvote l ON l.thread_id = t.id AND l.reaction = 'UP'
+                (COALESCE(COUNT(u.thread_id), 0) * 2 + COALESCE(v.view_count, 0) * 0.5) 
+                / pow(((strftime('%s', CURRENT_TIMESTAMP) - strftime('%s', t.created_at)) / 3600.0 + 2), 1.5) AS adj_score
+            FROM thread t
+            LEFT JOIN upvote u ON l.thread_id = t.id AND l.reaction = 'UP'
             LEFT JOIN views v ON v.thread_id = t.id
-            WHERE t.is_deleted = FALSE
+            WHERE t.is_deleted = 0
+            AND t.parent_thread_id IS NULL
             AND t.created_at < ?
             GROUP BY t.id, t.created_at
             ORDER BY adj_score DESC, t.created_at DESC
@@ -244,10 +263,15 @@ impl ThreadRepositoryTrait for ThreadRepository {
         let thread_list = sqlx::query_as::<_, Thread>(
             r#"
             SELECT
-                *
-            FROM thread
-            WHERE is_deleted = FALSE
-            AND created_at < ?
+                t.*,
+                (COALESCE(SUM(CASE WHEN u.reaction = 'UP' THEN 1 ELSE 0 END), 0) +
+                COALESCE(SUM(CASE WHEN u.reaction = 'DOWN' THEN -1 ELSE 0 END), 0)) AS upvote,
+                COALESCE(v.view_count, 0) AS views
+            FROM thread t
+            LEFT JOIN upvote u ON u.thread_id = t.id
+            LEFT JOIN views v ON v.thread_id = t.id
+            WHERE t.is_deleted = FALSE
+            GROUP BY t.id
             ORDER BY created_at DESC
             LIMIT ?;
             "#,
