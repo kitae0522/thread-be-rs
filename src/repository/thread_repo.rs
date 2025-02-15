@@ -167,7 +167,7 @@ impl ThreadRepositoryTrait for ThreadRepository {
             let thread = self.get_thread_by_id(id).await?;
             Ok(thread)
         } else {
-            Err(CustomError::NotFound)
+            Err(CustomError::NotFound("Thread".to_string()))
         }
     }
 
@@ -188,7 +188,7 @@ impl ThreadRepositoryTrait for ThreadRepository {
         if affected_rows > 0 {
             Ok(true)
         } else {
-            Err(CustomError::NotFound)
+            Err(CustomError::NotFound("Thread".to_string()))
         }
     }
 

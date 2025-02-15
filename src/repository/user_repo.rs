@@ -87,9 +87,12 @@ impl UserRepositoryTrait for UserRepository {
             .bind(value)
             .fetch_one(&*self.conn)
             .await
-            .map_err(|err| {
-                tracing::error!("Error finding user by {}: {}", column, err);
-                CustomError::DatabaseError
+            .map_err(|err| match err {
+                sqlx::Error::RowNotFound => CustomError::NotFound("User".to_string()),
+                _ => {
+                    tracing::error!("Error finding user by {}: {}", column, err);
+                    CustomError::DatabaseError
+                }
             })?;
 
         Ok(user)
@@ -129,7 +132,7 @@ impl UserRepositoryTrait for UserRepository {
             })?;
             Ok(profile)
         } else {
-            Err(CustomError::NotFound)
+            Err(CustomError::NotFound("User".to_string()))
         }
     }
 }

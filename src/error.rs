@@ -13,7 +13,7 @@ pub enum CustomError {
     DatabaseError,
     AlreadyRegisteredUser(String),
     InvalidCredentials,
-    NotFound,
+    NotFound(String),
     InternalError(String),
     Forbidden(String),
     Unauthorized(String),
@@ -45,10 +45,11 @@ impl IntoResponse for CustomError {
                 Json(ErrorResponse::new("Invalid credentials", None)),
             )
                 .into_response(),
-            CustomError::NotFound => {
-                (StatusCode::NOT_FOUND, Json(ErrorResponse::new("Data not found", None)))
-                    .into_response()
-            }
+            CustomError::NotFound(data) => (
+                StatusCode::NOT_FOUND,
+                Json(ErrorResponse::new(&format!("'{}' Data not found", data), None)),
+            )
+                .into_response(),
             CustomError::InternalError(message) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ErrorResponse::new(&message, None)),

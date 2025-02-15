@@ -40,16 +40,14 @@ impl UserService {
         &self,
         user: RequestSignin,
     ) -> Result<ResponseSignin, CustomError> {
-        if let Ok(user_from_db) = self.user_repo.find_user_by_email(&user.email).await {
-            match crypto::verify_password(&user.password, &user_from_db.hash_password) {
-                Ok(_) => {
-                    let token = JwtClaims::new(user_from_db.id, &user_from_db.email);
-                    return Ok(ResponseSignin { token });
-                }
-                Err(err) => return Err(err),
+        let user_from_db = self.user_repo.find_user_by_email(&user.email).await?;
+        match crypto::verify_password(&user.password, &user_from_db.hash_password) {
+            Ok(_) => {
+                let token = JwtClaims::new(user_from_db.id, &user_from_db.email);
+                return Ok(ResponseSignin { token });
             }
+            Err(err) => return Err(err),
         }
-        Err(CustomError::DatabaseError)
     }
 
     pub async fn me(&self, user_id: i64) -> Result<ResponseProfile, CustomError> {
