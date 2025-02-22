@@ -43,7 +43,7 @@ impl UserRepositoryTrait for UserRepository {
 
         let hashed_password = crypto::hash_password(&new_user.password)?;
         let result =
-            sqlx::query("INSERT INTO users (email, hash_password) VALUES (?, ?)")
+            sqlx::query("INSERT INTO users (email, hash_password) VALUES ($1, $2)")
                 .bind(&new_user.email)
                 .bind(&hashed_password)
                 .execute(&*self.conn)
@@ -77,9 +77,9 @@ impl UserRepositoryTrait for UserRepository {
         value: &str,
     ) -> RepositoryResult<User> {
         let query = match column {
-            "id" => "SELECT * FROM users WHERE id = ? AND is_deleted = FALSE",
-            "email" => "SELECT * FROM users WHERE email = ? AND is_deleted = FALSE",
-            "handle" => "SELECT * FROM users WHERE handle = ? AND is_deleted = FALSE",
+            "id" => "SELECT * FROM users WHERE id = $1 AND is_deleted = FALSE",
+            "email" => "SELECT * FROM users WHERE email = $1 AND is_deleted = FALSE",
+            "handle" => "SELECT * FROM users WHERE handle = $1 AND is_deleted = FALSE",
             _ => return Err(CustomError::InvalidQuery),
         };
 
@@ -104,7 +104,7 @@ impl UserRepositoryTrait for UserRepository {
         new_profile: RequestUpsertProfile,
     ) -> RepositoryResult<ResponseProfile> {
         let affected_rows = sqlx::query(
-            "UPDATE users SET name = ?, handle = ?, profile_img_url = ?, bio = ?, is_profile_complete = TRUE WHERE id = ?"
+            "UPDATE users SET name = $1, handle = $2, profile_img_url = $3, bio = $4, is_profile_complete = TRUE WHERE id = $5"
         )
         .bind(&new_profile.name)
         .bind(&new_profile.handle)
@@ -121,7 +121,7 @@ impl UserRepositoryTrait for UserRepository {
 
         if affected_rows > 0 {
             let profile = sqlx::query_as::<_, ResponseProfile>(
-                "SELECT id, email, name, handle, profile_img_url, bio, created_at, updated_at FROM users WHERE id = ?"
+                "SELECT id, email, name, handle, profile_img_url, bio, created_at, updated_at FROM users WHERE id = $1"
             )
             .bind(id)
             .fetch_one(&*self.conn)

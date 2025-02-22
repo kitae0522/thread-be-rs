@@ -62,7 +62,7 @@ impl ThreadRepositoryTrait for ThreadRepository {
         new_thread: RequestCreateThread,
     ) -> RepositoryResult<bool> {
         let _ = sqlx::query(
-            "INSERT INTO thread (user_id, title, content, parent_thread) VALUES (?, ?, ?, ?)",
+            "INSERT INTO thread (user_id, title, content, parent_thread) VALUES ($1, $2, $3, $4)",
         )
         .bind(user_id)
         .bind(new_thread.title)
@@ -82,15 +82,15 @@ impl ThreadRepositoryTrait for ThreadRepository {
             r#"
             SELECT
                 t.*,
-                (COALESCE(SUM(CASE WHEN u.reaction = 'UP' THEN 1 ELSE 0 END), 0) +
+                (COALESCE(SUM(CASE WHEN u.reaction = 'UP' THEN 1 ELSE 0 END), 0) + 
                 COALESCE(SUM(CASE WHEN u.reaction = 'DOWN' THEN -1 ELSE 0 END), 0)) AS upvote,
-                COALESCE(v.view_count, 0) AS views
+                COALESCE(MAX(v.view_count), 0) AS views
             FROM thread t
             LEFT JOIN upvote u ON u.thread_id = t.id
             LEFT JOIN views v ON v.thread_id = t.id
-            WHERE t.id = ?
-            AND t.is_deleted = 0
-            GROUP BY t.id;
+            WHERE t.id = $1
+            AND t.is_deleted = FALSE
+            GROUP BY t.id
             "#,
         )
         .bind(id)
@@ -116,17 +116,17 @@ impl ThreadRepositoryTrait for ThreadRepository {
                 t.*,
                 (COALESCE(SUM(CASE WHEN u.reaction = 'UP' THEN 1 ELSE 0 END), 0) +
                 COALESCE(SUM(CASE WHEN u.reaction = 'DOWN' THEN -1 ELSE 0 END), 0)) AS upvote,
-                COALESCE(v.view_count, 0) AS views
+                COALESCE(MAX(v.view_count), 0) AS views
             FROM thread t
             LEFT JOIN upvote u ON u.thread_id = t.id
             LEFT JOIN views v ON v.thread_id = t.id
-            WHERE t.user_id = ?
-            AND t.created_at < ?
-            AND id > ?
+            WHERE t.user_id = $1
+            AND t.created_at < $2
+            AND t.id > $3
             AND t.is_deleted = FALSE
             GROUP BY t.id
-            ORDER BY t.created_at DESC, id DESC
-            LIMIT ?
+            ORDER BY t.created_at DESC, t.id DESC
+            LIMIT $4
             "#,
         )
         .bind(user_id)
@@ -149,7 +149,7 @@ impl ThreadRepositoryTrait for ThreadRepository {
         new_thread: RequestUpdateThread,
     ) -> RepositoryResult<ResponseThread> {
         let affected_rows = sqlx::query(
-            "UPDATE thread SET title = ?, content = ?, parent_thread = ? WHERE id = ?",
+            "UPDATE thread SET title = $1, content = $2, parent_thread = $3 WHERE id = $4",
         )
         .bind(&new_thread.title)
         .bind(&new_thread.content)
@@ -173,7 +173,7 @@ impl ThreadRepositoryTrait for ThreadRepository {
 
     async fn delete_thread(&self, id: i64) -> RepositoryResult<bool> {
         let affected_rows = sqlx::query(
-            "UPDATE thread SET is_deleted = TRUE, deleted_at = ? WHERE id = ?",
+            "UPDATE thread SET is_deleted = TRUE, deleted_at = $1 WHERE id = $2",
         )
         .bind(Utc::now().to_rfc3339())
         .bind(id)
@@ -204,11 +204,12 @@ impl ThreadRepositoryTrait for ThreadRepository {
                 t.*
             FROM thread t
             JOIN follow f ON f.follower_id = t.user_id
-            WHERE t.is_deleted = FALSE
-            AND f.user_id = ?
-            AND t.created_at < ?
+            WHERE f.user_id = $1
+            AND t.is_deleted = FALSE
+            AND t.parent_thread IS NULL
+            AND t.created_at < $2
             ORDER BY t.created_at DESC
-            LIMIT ?
+            LIMIT $3
             "#,
         )
         .bind(user_id)
@@ -235,18 +236,18 @@ impl ThreadRepositoryTrait for ThreadRepository {
                 t.*,
                 (COALESCE(SUM(CASE WHEN u.reaction = 'UP' THEN 1 ELSE 0 END), 0) +
                 COALESCE(SUM(CASE WHEN u.reaction = 'DOWN' THEN -1 ELSE 0 END), 0)) AS upvote,
-                COALESCE(v.view_count, 0) AS views,
-                (COALESCE(COUNT(u.thread_id), 0) * 2 + COALESCE(v.view_count, 0) * 0.5) 
-                / pow(((strftime('%s', CURRENT_TIMESTAMP) - strftime('%s', t.created_at)) / 3600.0 + 2), 1.5) AS adj_score
+                COALESCE(MAX(v.view_count), 0) AS views,
+                (COALESCE(COUNT(u.thread_id), 0) * 2 + COALESCE(MAX(v.view_count), 0) * 0.5) 
+                / POW((EXTRACT(EPOCH FROM CURRENT_TIMESTAMP) - EXTRACT(EPOCH FROM t.created_at)) / 3600.0 + 2, 1.5) AS adj_score
             FROM thread t
             LEFT JOIN upvote u ON u.thread_id = t.id AND u.reaction = 'UP'
             LEFT JOIN views v ON v.thread_id = t.id
-            WHERE t.is_deleted = 0
+            WHERE t.created_at < $1
             AND t.parent_thread IS NULL
-            AND t.created_at < ?
+            AND t.is_deleted = FALSE
             GROUP BY t.id, t.created_at
             ORDER BY adj_score DESC, t.created_at DESC
-            LIMIT ?
+            LIMIT $2
             "#
         )
         .bind(cursor.created_at)
@@ -272,14 +273,16 @@ impl ThreadRepositoryTrait for ThreadRepository {
                 t.*,
                 (COALESCE(SUM(CASE WHEN u.reaction = 'UP' THEN 1 ELSE 0 END), 0) +
                 COALESCE(SUM(CASE WHEN u.reaction = 'DOWN' THEN -1 ELSE 0 END), 0)) AS upvote,
-                COALESCE(v.view_count, 0) AS views
+                COALESCE(MAX(v.view_count), 0) AS views
             FROM thread t
             LEFT JOIN upvote u ON u.thread_id = t.id
             LEFT JOIN views v ON v.thread_id = t.id
-            WHERE t.is_deleted = FALSE
+            WHERE t.created_at < $1
+            AND t.parent_thread IS NULL
+            AND t.is_deleted = FALSE
             GROUP BY t.id
             ORDER BY created_at DESC
-            LIMIT ?;
+            LIMIT $2
             "#,
         )
         .bind(cursor.created_at)

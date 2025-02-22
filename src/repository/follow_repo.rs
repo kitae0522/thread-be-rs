@@ -62,7 +62,7 @@ impl FollowRepositoryTrait for FollowRepository {
         user_id: i64,
         target_user_id: i64,
     ) -> RepositoryResult<bool> {
-        let _ = sqlx::query("INSERT INTO follow (user_id, follower_id) VALUES (?, ?)")
+        let _ = sqlx::query("INSERT INTO follow (user_id, follower_id) VALUES ($1, $2)")
             .bind(user_id)
             .bind(target_user_id)
             .execute(&*self.conn)
@@ -77,7 +77,7 @@ impl FollowRepositoryTrait for FollowRepository {
         user_id: i64,
         target_user_id: i64,
     ) -> RepositoryResult<bool> {
-        let _ = sqlx::query("DELETE FROM follow WHERE user_id = ? AND follower_id = ?")
+        let _ = sqlx::query("DELETE FROM follow WHERE user_id = $1 AND follower_id = $2")
             .bind(user_id)
             .bind(target_user_id)
             .execute(&*self.conn)
@@ -93,7 +93,7 @@ impl FollowRepositoryTrait for FollowRepository {
         target_user_id: i64,
     ) -> RepositoryResult<bool> {
         let count = sqlx::query_scalar::<_, i64>(
-            "SELECT COUNT(*) FROM follow WHERE user_id = ? AND follower_id = ?",
+            "SELECT COUNT(*) FROM follow WHERE user_id = $1 AND follower_id = $2",
         )
         .bind(user_id)
         .bind(target_user_id)
@@ -107,8 +107,8 @@ impl FollowRepositoryTrait for FollowRepository {
     async fn get_follow_status(&self, user_id: i64) -> RepositoryResult<(i64, i64)> {
         let (followers_count, following_count) = sqlx::query_as::<_, (i64, i64)>(
             "SELECT 
-                (SELECT COUNT(*) FROM follow WHERE follower_id = ?) AS followers_count,
-                (SELECT COUNT(*) FROM follow WHERE user_id = ?) AS following_count",
+                (SELECT COUNT(*) FROM follow WHERE follower_id = $1) AS followers_count,
+                (SELECT COUNT(*) FROM follow WHERE user_id = $2) AS following_count",
         )
         .bind(user_id)
         .bind(user_id)
@@ -132,10 +132,10 @@ impl FollowRepositoryTrait for FollowRepository {
                 f.created_at AS followed_at
             FROM follow f
             JOIN users u ON f.user_id = u.id
-            WHERE f.follower_id = ?
-            AND f.created_at < ?
+            WHERE f.follower_id = $1
+            AND f.created_at < $2
             ORDER BY f.created_at DESC
-            LIMIT ?
+            LIMIT $3
             "#,
         )
         .bind(user_id)
@@ -161,10 +161,10 @@ impl FollowRepositoryTrait for FollowRepository {
                 f.created_at AS followed_at
             FROM follow f
             JOIN users u ON f.follower_id = u.id
-            WHERE f.user_id = ?
-            AND f.created_at < ?
+            WHERE f.user_id = $1
+            AND f.created_at < $2
             ORDER BY f.created_at DESC
-            LIMIT ?
+            LIMIT $3
             "#,
         )
         .bind(user_id)
