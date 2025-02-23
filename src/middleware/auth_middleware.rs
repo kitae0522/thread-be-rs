@@ -1,12 +1,11 @@
 use crate::{domain::model::jwt_claims::JwtClaims, error::CustomError};
 use axum::{body::Body, http::Request, middleware::Next, response::IntoResponse};
 use jsonwebtoken::{decode, errors::Error, DecodingKey, Validation};
+use tracing::error;
 
 const SECRET_KEY: &str = "sample secret key";
 
 pub async fn mw_require_auth(mut req: Request<Body>, next: Next) -> impl IntoResponse {
-    println!("->> {:<12} mw_require_auth", "MIDDLEWARE");
-
     let auth_header = req.headers().get("Authorization");
     if auth_header.is_none() {
         return CustomError::Forbidden("Authorization header is missing".to_string())
@@ -49,7 +48,7 @@ async fn decode_jwt(token: &str) -> Result<JwtClaims, Error> {
     decode::<JwtClaims>(token, &decoding_key, &Validation::default())
         .map(|decoded_token| decoded_token.claims)
         .map_err(|err| {
-            println!("Error decoding JWT: {}", err);
+            error!("Error decoding JWT: {}", err);
             err
         })
 }

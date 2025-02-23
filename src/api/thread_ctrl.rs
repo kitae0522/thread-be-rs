@@ -52,7 +52,6 @@ pub async fn create_thread(
     Extension(token_context): Extension<JwtClaims>,
     Json(create_thread_dto): Json<RequestCreateThread>,
 ) -> Result<impl IntoResponse, CustomError> {
-    println!("->> {:<12} - handler_create_thread", "HANDLER");
     match state.thread_service.create_thread(token_context.id, create_thread_dto).await {
         Ok(success) => {
             if success {
@@ -73,7 +72,6 @@ pub async fn feed_thread(
     Extension(token_context): Extension<JwtClaims>,
     Query(params): Query<RequestCursorParmas>,
 ) -> Result<impl IntoResponse, CustomError> {
-    println!("->> {:<12} - handler_feed_thread", "HANDLER");
     match state
         .thread_service
         .list_recommend_thread(token_context.id, params.cursor.as_deref(), params.limit)
@@ -92,7 +90,6 @@ pub async fn get_thread_by_id(
     State(state): State<ThreadState>,
     Path(id): Path<i64>,
 ) -> Result<impl IntoResponse, CustomError> {
-    println!("->> {:<12} - handler_get_thread_by_id", "HANDLER");
     match state.thread_service.get_thread_by_id(id).await {
         Ok(thread) => {
             Ok(Json(SuccessResponse::new("Success to fetch thread", Some(thread))))
@@ -107,7 +104,6 @@ pub async fn list_thread_by_user_handle(
     Path(user_handle): Path<String>,
     Query(params): Query<RequestCursorParmas>,
 ) -> Result<impl IntoResponse, CustomError> {
-    println!("->> {:<12} - handler_list_thread_by_user_handle", "HANDLER");
     match state
         .thread_service
         .list_thread_by_user_handle(&user_handle, params.cursor.as_deref(), params.limit)

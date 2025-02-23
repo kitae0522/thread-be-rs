@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use axum::{
     extract::{Path, Query, State},
     middleware,
@@ -8,6 +6,7 @@ use axum::{
     Extension, Json, Router,
 };
 use sqlx::PgPool;
+use std::sync::Arc;
 
 use crate::{
     config::app_state::AppState,
@@ -58,7 +57,6 @@ pub async fn signup(
     State(state): State<AppState>,
     Json(signup_dto): Json<RequestSignup>,
 ) -> Result<impl IntoResponse, CustomError> {
-    println!("->> {:<12} - handler_signup", "HANDLER");
     match state.user_service.signup(signup_dto).await {
         Ok(message) => Ok(Json(SuccessResponse::<String>::new(&message, None))),
         Err(err) => Err(err),
@@ -70,7 +68,6 @@ pub async fn signin(
     State(state): State<AppState>,
     Json(signin_dto): Json<RequestSignin>,
 ) -> Result<impl IntoResponse, CustomError> {
-    println!("->> {:<12} - handler_signin", "HANDLER");
     match state.user_service.signin(signin_dto).await {
         Ok(token) => Ok(Json(SuccessResponse::new("Success to login", Some(token)))),
         Err(err) => Err(err),
@@ -82,7 +79,6 @@ pub async fn me(
     State(state): State<AppState>,
     Extension(token_context): Extension<JwtClaims>,
 ) -> Result<impl IntoResponse, CustomError> {
-    println!("->> {:<12} - handler_me", "HANDLER");
     match state.user_service.me(token_context.id).await {
         Ok(profile) => {
             Ok(Json(SuccessResponse::new("Success to fetch your profile", Some(profile))))
@@ -97,7 +93,6 @@ pub async fn upsert_profile(
     Extension(token_context): Extension<JwtClaims>,
     Json(profile_dto): Json<RequestUpsertProfile>,
 ) -> Result<impl IntoResponse, CustomError> {
-    println!("->> {:<12} - handler_upsert_profile", "HANDLER");
     match state.user_service.upsert_profile(token_context.id, profile_dto).await {
         Ok(profile) => Ok(Json(SuccessResponse::new(
             "Success to upsert your profile",
@@ -112,7 +107,6 @@ pub async fn get_user(
     State(state): State<AppState>,
     Path(handle): Path<String>,
 ) -> Result<impl IntoResponse, CustomError> {
-    println!("->> {:<12} - handler_get_user", "HANDLER");
     match state.user_service.get_user(&handle).await {
         Ok(profile) => Ok(Json(SuccessResponse::new(
             &format!("Success to fetch '{}' profile", handle),
@@ -128,7 +122,6 @@ pub async fn list_user_follower(
     Path(handle): Path<String>,
     Query(params): Query<RequestCursorParmas>,
 ) -> Result<impl IntoResponse, CustomError> {
-    println!("->> {:<12} - handler_list_user_follower", "HANDLER");
     match state
         .user_service
         .list_user_follower(&handle, params.cursor.as_deref(), params.limit)
@@ -148,7 +141,6 @@ pub async fn list_user_following(
     Path(handle): Path<String>,
     Query(params): Query<RequestCursorParmas>,
 ) -> Result<impl IntoResponse, CustomError> {
-    println!("->> {:<12} - handler_list_user_following", "HANDLER");
     match state
         .user_service
         .list_user_following(&handle, params.cursor.as_deref(), params.limit)

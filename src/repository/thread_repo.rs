@@ -2,6 +2,7 @@ use async_trait::async_trait;
 use chrono::Utc;
 use sqlx::PgPool;
 use std::sync::Arc;
+use tracing::{debug, error};
 
 use super::RepositoryResult;
 use crate::{
@@ -70,7 +71,7 @@ impl ThreadRepositoryTrait for ThreadRepository {
         .bind(new_thread.parent_thread)
         .execute(&*self.conn)
         .await.map_err(|err| {
-            println!("{:?}", err);
+            error!("Error creating thread: {}", err);
             CustomError::DatabaseError
         })?;
 
@@ -97,7 +98,7 @@ impl ThreadRepositoryTrait for ThreadRepository {
         .fetch_one(&*self.conn)
         .await
         .map_err(|err| {
-            println!("{:?}", err);
+            error!("Error fetching thread by id: {}", err);
             CustomError::DatabaseError
         })?;
 
@@ -136,7 +137,7 @@ impl ThreadRepositoryTrait for ThreadRepository {
         .fetch_all(&*self.conn)
         .await
         .map_err(|err| {
-            println!("{:?}", err);
+            error!("Error fetching user thread list: {}", err);
             CustomError::DatabaseError
         })?;
 
@@ -158,7 +159,7 @@ impl ThreadRepositoryTrait for ThreadRepository {
         .execute(&*self.conn)
         .await
         .map_err(|err| {
-            println!("{:?}", err);
+            error!("Error updating thread: {}", err);
             CustomError::DatabaseError
         })?
         .rows_affected();
@@ -180,7 +181,7 @@ impl ThreadRepositoryTrait for ThreadRepository {
         .execute(&*self.conn)
         .await
         .map_err(|err| {
-            println!("{:?}", err);
+            error!("Error deleting thread: {}", err);
             CustomError::DatabaseError
         })?
         .rows_affected();
@@ -218,7 +219,7 @@ impl ThreadRepositoryTrait for ThreadRepository {
         .fetch_all(&*self.conn)
         .await
         .map_err(|err| {
-            println!("{:?}", err);
+            error!("Error fetching thread list from user followers: {}", err);
             CustomError::DatabaseError
         })?;
 
@@ -255,7 +256,7 @@ impl ThreadRepositoryTrait for ThreadRepository {
         .fetch_all(&*self.conn)
         .await
         .map_err(|err| {
-            println!("{:?}", err);
+            error!("Error fetching popularity thread list: {}", err);
             CustomError::DatabaseError
         })?;
 
@@ -290,7 +291,7 @@ impl ThreadRepositoryTrait for ThreadRepository {
         .fetch_all(&*self.conn)
         .await
         .map_err(|err| {
-            println!("{:?}", err);
+            error!("Error fetching latest thread list: {}", err);
             CustomError::DatabaseError
         })?;
 

@@ -1,12 +1,12 @@
-use async_trait::async_trait;
-use sqlx::PgPool;
-use std::sync::Arc;
-
 use super::RepositoryResult;
 use crate::{
     domain::model::{cursor_claims::CursorClaims, follow::FollowList},
     error::CustomError,
 };
+use async_trait::async_trait;
+use sqlx::PgPool;
+use std::sync::Arc;
+use tracing::{debug, error};
 
 #[async_trait]
 pub trait FollowRepositoryTrait: Send + Sync {
@@ -67,7 +67,10 @@ impl FollowRepositoryTrait for FollowRepository {
             .bind(target_user_id)
             .execute(&*self.conn)
             .await
-            .map_err(|_| CustomError::DatabaseError);
+            .map_err(|err| {
+                error!("Error following user: {}", err);
+                CustomError::DatabaseError
+            });
 
         Ok(true)
     }
@@ -82,7 +85,10 @@ impl FollowRepositoryTrait for FollowRepository {
             .bind(target_user_id)
             .execute(&*self.conn)
             .await
-            .map_err(|_| CustomError::DatabaseError);
+            .map_err(|err| {
+                error!("Error unfollowing user: {}", err);
+                CustomError::DatabaseError
+            });
 
         Ok(true)
     }
@@ -99,7 +105,10 @@ impl FollowRepositoryTrait for FollowRepository {
         .bind(target_user_id)
         .fetch_one(&*self.conn)
         .await
-        .map_err(|_| CustomError::DatabaseError)?;
+        .map_err(|err| {
+            error!("Error getting if user is follwing target user: {}", err);
+            CustomError::DatabaseError
+        })?;
 
         Ok(count > 0)
     }
@@ -114,7 +123,10 @@ impl FollowRepositoryTrait for FollowRepository {
         .bind(user_id)
         .fetch_one(&*self.conn)
         .await
-        .map_err(|_| CustomError::DatabaseError)?;
+        .map_err(|err| {
+            error!("Error fetching user follow status: {}", err);
+            CustomError::DatabaseError
+        })?;
 
         Ok((followers_count, following_count))
     }
@@ -143,7 +155,10 @@ impl FollowRepositoryTrait for FollowRepository {
         .bind(limit)
         .fetch_all(&*self.conn)
         .await
-        .map_err(|_| CustomError::DatabaseError)?;
+        .map_err(|err| {
+            error!("Error fetching user following list: {}", err);
+            CustomError::DatabaseError
+        })?;
 
         Ok(following_list)
     }
@@ -172,7 +187,10 @@ impl FollowRepositoryTrait for FollowRepository {
         .bind(limit)
         .fetch_all(&*self.conn)
         .await
-        .map_err(|_| CustomError::DatabaseError)?;
+        .map_err(|err| {
+            error!("Error fetching user follower list: {}", err);
+            CustomError::DatabaseError
+        })?;
 
         Ok(followers)
     }

@@ -46,7 +46,6 @@ pub async fn follow(
     Extension(token_context): Extension<JwtClaims>,
     Path(target_user_handle): Path<String>,
 ) -> Result<impl IntoResponse, CustomError> {
-    println!("->> {:<12} - handler_follow", "HANDLER");
     match state.follow_service.follow(token_context.id, &target_user_handle).await {
         Ok(success) => {
             if success {
@@ -67,7 +66,6 @@ pub async fn unfollow(
     Extension(token_context): Extension<JwtClaims>,
     Path(target_user_handle): Path<String>,
 ) -> Result<impl IntoResponse, CustomError> {
-    println!("->> {:<12} - handler_unfollow", "HANDLER");
     match state.follow_service.unfollow(token_context.id, &target_user_handle).await {
         Ok(success) => {
             if success {

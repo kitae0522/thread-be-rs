@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use sqlx::PgPool;
 use std::sync::Arc;
+use tracing::{debug, error};
 
 use super::RepositoryResult;
 use crate::{
@@ -52,7 +53,7 @@ impl UserRepositoryTrait for UserRepository {
         match result {
             Ok(_) => Ok("User created successfully".to_string()),
             Err(err) => {
-                tracing::error!("Database error: {}", err);
+                error!("Error creating user: {}", err);
                 Err(CustomError::DatabaseError)
             }
         }
@@ -90,7 +91,7 @@ impl UserRepositoryTrait for UserRepository {
             .map_err(|err| match err {
                 sqlx::Error::RowNotFound => CustomError::NotFound("User".to_string()),
                 _ => {
-                    tracing::error!("Error finding user by {}: {}", column, err);
+                    error!("Error finding user by {}: {}", column, err);
                     CustomError::DatabaseError
                 }
             })?;
@@ -114,7 +115,7 @@ impl UserRepositoryTrait for UserRepository {
         .execute(&*self.conn)
         .await
         .map_err(|err| {
-            tracing::error!("Error updating user profile: {}", err);
+            error!("Error updating user profile: {}", err);
             CustomError::DatabaseError
         })?
         .rows_affected();
@@ -127,7 +128,7 @@ impl UserRepositoryTrait for UserRepository {
             .fetch_one(&*self.conn)
             .await
             .map_err(|err| {
-                tracing::error!("Error fetching updated user: {}", err);
+                error!("Error fetching updated user: {}", err);
                 CustomError::DatabaseError
             })?;
             Ok(profile)
