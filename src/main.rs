@@ -16,12 +16,9 @@ async fn main() {
     dotenv().ok();
     tracing_subscriber::fmt::init();
 
-    let db_url = std::env::var("DATABASE_URL")
-        .expect("missing environment variable `DATABASE_URL`")
-        .to_owned();
     let db_pool = PgPoolOptions::new()
         .max_connections(5)
-        .connect(&db_url)
+        .connect(&config::env::envs().db_url)
         .await
         .expect("error creating database pool");
     let app = config::router::routes_all(&db_pool).await;

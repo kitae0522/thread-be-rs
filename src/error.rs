@@ -12,6 +12,7 @@ use crate::domain::dto::ErrorResponse;
 #[derive(Debug, Serialize)]
 pub enum CustomError {
     DatabaseError(String),
+    JWTError(String),
     AlreadyRegisteredUser(String),
     InvalidCredentials,
     NotFound,
@@ -37,6 +38,9 @@ impl IntoResponse for CustomError {
     fn into_response(self) -> Response {
         match self {
             CustomError::DatabaseError(ref message) => {
+                self.response_helper(StatusCode::INTERNAL_SERVER_ERROR, &message)
+            }
+            CustomError::JWTError(ref message) => {
                 self.response_helper(StatusCode::INTERNAL_SERVER_ERROR, &message)
             }
             CustomError::AlreadyRegisteredUser(ref user_email) => self.response_helper(
@@ -90,5 +94,11 @@ impl From<sqlx::Error> for CustomError {
             sqlx::Error::RowNotFound => CustomError::NotFound,
             _ => CustomError::DatabaseError(db_error.to_string()),
         }
+    }
+}
+
+impl From<jsonwebtoken::errors::Error> for CustomError {
+    fn from(jwt_error: jsonwebtoken::errors::Error) -> Self {
+        CustomError::JWTError(jwt_error.to_string())
     }
 }

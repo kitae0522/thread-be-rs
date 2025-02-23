@@ -4,9 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-# tokio / axum
+# tokio / axum / async-trait
 tokio = { version = "1.43.0", features = ["macros", "rt-multi-thread"] }
 axum = { version = "0.8.1", features = ["macros"] }
+async-trait = "0.1.86"
 # sql
 sqlx = { version = "0.8.3", features = [
     "postgres",
@@ -30,7 +31,7 @@ bcrypt = "0.17.0"
 # logging
 tracing = "0.1.41"
 tracing-subscriber = "0.3.19"
-async-trait = "0.1.86"
+# b64
 base64 = "0.22.1"
 
 [dev-dependencies]

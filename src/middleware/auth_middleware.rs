@@ -1,9 +1,6 @@
 use crate::{domain::model::jwt_claims::JwtClaims, error::CustomError};
 use axum::{body::Body, http::Request, middleware::Next, response::IntoResponse};
-use jsonwebtoken::{decode, errors::Error, DecodingKey, Validation};
 use tracing::error;
-
-const SECRET_KEY: &str = "sample secret key";
 
 pub async fn mw_require_auth(mut req: Request<Body>, next: Next) -> impl IntoResponse {
     let auth_header = req.headers().get("Authorization");
@@ -30,25 +27,15 @@ pub async fn mw_require_auth(mut req: Request<Body>, next: Next) -> impl IntoRes
     }
 
     let token = &auth_str[7..];
-    match decode_jwt(token).await {
+    match JwtClaims::decode_jwt(token) {
         Ok(payload) => {
             req.extensions_mut().insert(payload);
             return next.run(req).await;
         }
         Err(err) => {
-            println!("JWT decode error: {}", err);
+            error!("JWT decode error: {}", err);
             return CustomError::Unauthorized("Invalid or expired token".to_string())
                 .into_response();
         }
     }
-}
-
-async fn decode_jwt(token: &str) -> Result<JwtClaims, Error> {
-    let decoding_key = DecodingKey::from_secret(SECRET_KEY.as_ref());
-    decode::<JwtClaims>(token, &decoding_key, &Validation::default())
-        .map(|decoded_token| decoded_token.claims)
-        .map_err(|err| {
-            error!("Error decoding JWT: {}", err);
-            err
-        })
 }

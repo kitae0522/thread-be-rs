@@ -47,7 +47,8 @@ impl UserService {
         let user_from_db = self.user_repo.find_user_by_email(&user.email).await?;
         match crypto::verify_password(&user.password, &user_from_db.hash_password) {
             Ok(_) => {
-                let token = JwtClaims::new(user_from_db.id, &user_from_db.email);
+                let token_claims = JwtClaims::new(user_from_db.id, &user_from_db.email);
+                let token = JwtClaims::encode_jwt(token_claims)?;
                 return Ok(ResponseSignin { token });
             }
             Err(err) => return Err(err),
