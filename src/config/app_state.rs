@@ -6,21 +6,12 @@ use crate::services::{
 };
 
 #[derive(Clone)]
-pub struct AppState {
-    pub user_service: Arc<UserService>,
-}
-
-#[derive(Clone)]
 pub struct UserState {
     pub user_service: Arc<UserService>,
+    pub follow_service: Arc<FollowService>,
 }
 
 #[derive(Clone)]
 pub struct ThreadState {
     pub thread_service: Arc<ThreadService>,
-}
-
-#[derive(Clone)]
-pub struct FollowState {
-    pub follow_service: Arc<FollowService>,
 }
