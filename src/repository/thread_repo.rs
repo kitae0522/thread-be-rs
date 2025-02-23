@@ -2,7 +2,6 @@ use async_trait::async_trait;
 use chrono::Utc;
 use sqlx::PgPool;
 use std::sync::Arc;
-use tracing::{debug, error};
 
 use super::RepositoryResult;
 use crate::{
@@ -84,7 +83,7 @@ impl ThreadRepositoryTrait for ThreadRepository {
                 COALESCE(SUM(CASE WHEN u.reaction = 'DOWN' THEN -1 ELSE 0 END), 0)) AS upvote,
                 COALESCE(MAX(v.view_count), 0) AS views
             FROM thread t
-            LEFT JOIN upvote u ON u.thread_id = t.id
+            LEFT JOIN upvotes u ON u.thread_id = t.id
             LEFT JOIN views v ON v.thread_id = t.id
             WHERE t.id = $1
             AND t.is_deleted = FALSE
@@ -112,7 +111,7 @@ impl ThreadRepositoryTrait for ThreadRepository {
                 COALESCE(SUM(CASE WHEN u.reaction = 'DOWN' THEN -1 ELSE 0 END), 0)) AS upvote,
                 COALESCE(MAX(v.view_count), 0) AS views
             FROM thread t
-            LEFT JOIN upvote u ON u.thread_id = t.id
+            LEFT JOIN upvotes u ON u.thread_id = t.id
             LEFT JOIN views v ON v.thread_id = t.id
             WHERE t.user_id = $1
             AND t.created_at < $2
@@ -183,15 +182,21 @@ impl ThreadRepositoryTrait for ThreadRepository {
         let thread_list = sqlx::query_as::<_, ResponseThread>(
             r#"
             SELECT
-                t.*
+                t.*,
+                COALESCE(SUM(CASE WHEN u.reaction = 'UP' THEN 1 ELSE 0 END), 0) +
+                COALESCE(SUM(CASE WHEN u.reaction = 'DOWN' THEN -1 ELSE 0 END), 0) AS upvote,
+                COALESCE(MAX(v.view_count), 0) AS views
             FROM thread t
-            JOIN follow f ON f.follower_id = t.user_id
+            LEFT JOIN upvotes u ON u.thread_id = t.id
+            LEFT JOIN views v ON v.thread_id = t.id
+            LEFT JOIN follow f ON f.follower_id = t.user_id
             WHERE f.user_id = $1
             AND t.is_deleted = FALSE
             AND t.parent_thread IS NULL
             AND t.created_at < $2
+            GROUP BY t.id
             ORDER BY t.created_at DESC
-            LIMIT $3
+            LIMIT $3;
             "#,
         )
         .bind(user_id)
@@ -218,7 +223,7 @@ impl ThreadRepositoryTrait for ThreadRepository {
                 (COALESCE(COUNT(u.thread_id), 0) * 2 + COALESCE(MAX(v.view_count), 0) * 0.5) 
                 / POW((EXTRACT(EPOCH FROM CURRENT_TIMESTAMP) - EXTRACT(EPOCH FROM t.created_at)) / 3600.0 + 2, 1.5) AS adj_score
             FROM thread t
-            LEFT JOIN upvote u ON u.thread_id = t.id AND u.reaction = 'UP'
+            LEFT JOIN upvotes u ON u.thread_id = t.id AND u.reaction = 'UP'
             LEFT JOIN views v ON v.thread_id = t.id
             WHERE t.created_at < $1
             AND t.parent_thread IS NULL
@@ -249,7 +254,7 @@ impl ThreadRepositoryTrait for ThreadRepository {
                 COALESCE(SUM(CASE WHEN u.reaction = 'DOWN' THEN -1 ELSE 0 END), 0)) AS upvote,
                 COALESCE(MAX(v.view_count), 0) AS views
             FROM thread t
-            LEFT JOIN upvote u ON u.thread_id = t.id
+            LEFT JOIN upvotes u ON u.thread_id = t.id
             LEFT JOIN views v ON v.thread_id = t.id
             WHERE t.created_at < $1
             AND t.parent_thread IS NULL

@@ -14,6 +14,15 @@ pub struct ThreadService {
     thread_repo: Arc<dyn ThreadRepositoryTrait>,
 }
 
+// Implements cursor-based pagination.
+// The `cursor` parameter is used to fetch data starting from a specific point.
+// - It is a Base64-encoded string, e.g., `Base64.encode({"id":2, "created_at": "2025-02-15T06:52:51.576520123Z"})`.
+// - Decoding it will extract `{ id, created_at }`.
+//
+// Function flow:
+// 1) Retrieve the user ID (`user_id`) using `user_repo.find_user_by_handle(user_handle)`.
+// 2) Decode the `cursor` value from Base64 to extract `{ id, created_at }`.
+// 3) Call `thread_repo.list_thread(cursor, limit)` to fetch threads starting from the cursor.
 impl ThreadService {
     pub fn new(
         user_repo: Arc<dyn UserRepositoryTrait>,
@@ -40,15 +49,6 @@ impl ThreadService {
         cursor: Option<&str>,
         limit: Option<i64>,
     ) -> Result<Vec<ResponseThread>, CustomError> {
-        // Implements cursor-based pagination.
-        // The `cursor` parameter is used to fetch data starting from a specific point.
-        // - It is a Base64-encoded string, e.g., `Base64.encode({"id":2, "created_at": "2025-02-15T06:52:51.576520123Z"})`.
-        // - Decoding it will extract `{ id, created_at }`.
-        //
-        // Function flow:
-        // 1) Retrieve the user ID (`user_id`) using `user_repo.find_user_by_handle(user_handle)`.
-        // 2) Decode the `cursor` value from Base64 to extract `{ id, created_at }`.
-        // 3) Call `thread_repo.list_thread(cursor, limit)` to fetch threads starting from the cursor.
         let user = self.user_repo.find_user_by_handle(user_handle).await?;
         if !user.is_profile_complete {
             return Err(CustomError::ProfileNotCreated);
@@ -56,9 +56,6 @@ impl ThreadService {
 
         let cursor = cursor.unwrap_or_default();
         let claims = CursorClaims::decode_cursor(cursor).unwrap_or_default();
-        // .ok_or_else(|| {
-        //     CustomError::InternalError("Failed to decode cursor".to_string())
-        // })?;
 
         let limit = limit.unwrap_or(10);
         let thread_list =
@@ -72,31 +69,28 @@ impl ThreadService {
         cursor: Option<&str>,
         limit: Option<i64>,
     ) -> Result<Vec<ResponseThread>, CustomError> {
+        //
         let cursor = cursor.unwrap_or_default();
         let claims = CursorClaims::decode_cursor(cursor).unwrap_or_default();
         let limit = limit.unwrap_or(10);
 
-        // let follow_based_threads = self
-        //     .thread_repo
-        //     .list_thread_by_following(user_id, claims.clone(), limit / 2)
-        //     .await?;
-        // println!("{:?}", follow_based_threads);
-        let popularity_score_based_threads = self
-            .thread_repo
-            .list_thread_by_popularity_score(claims.clone(), limit / 3)
-            .await?;
-        println!("{:?}", popularity_score_based_threads);
-        let latest_created_threads =
-            self.thread_repo.list_thread_by_latest_created(claims, limit / 5).await?;
-        println!("{:?}", latest_created_threads);
+        let (follower_threads, popular_threads, recent_threads) = tokio::join!(
+            self.thread_repo.list_thread_by_following(user_id, claims.clone(), limit),
+            self.thread_repo.list_thread_by_popularity_score(claims.clone(), limit),
+            self.thread_repo.list_thread_by_latest_created(claims, limit)
+        );
+
+        let follower_threads = follower_threads?;
+        let popular_threads = popular_threads?;
+        let recent_threads = recent_threads?;
 
         let mut thread_list = Vec::new();
-        // thread_list.extend(follow_based_threads);
-        thread_list.extend(popularity_score_based_threads);
-        thread_list.extend(latest_created_threads);
+        thread_list.extend(follower_threads);
+        thread_list.extend(popular_threads);
+        thread_list.extend(recent_threads);
 
         thread_list.sort_by(|item_1, item_2| item_2.created_at.cmp(&item_1.created_at));
 
-        Ok(thread_list)
+        Ok(thread_list.into_iter().take(limit as usize).collect())
     }
 }

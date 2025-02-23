@@ -23,7 +23,7 @@ pub struct ResponseThread {
 
     pub title: Option<String>,
     pub content: String,
-    pub parent_thread: i64,
+    pub parent_thread: Option<i64>,
     pub upvote: i64,
     pub views: i64,
 
@@ -32,3 +32,5 @@ pub struct ResponseThread {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
+
+

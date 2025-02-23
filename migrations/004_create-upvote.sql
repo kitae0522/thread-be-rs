@@ -1,6 +1,6 @@
 CREATE TYPE reaction_enum AS ENUM ('UP', 'DOWN');
 
-CREATE TABLE IF NOT EXISTS upvote (
+CREATE TABLE IF NOT EXISTS upvotes (
     user_id BIGINT NOT NULL,
     thread_id BIGINT NOT NULL,
     

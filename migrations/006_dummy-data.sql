@@ -64,7 +64,7 @@ VALUES
     (1, 'Third Thread', 'This is the third thread content', NULL, FALSE),
     (1, 'Deleted Thread', 'This is the deleted thread content', NULL, TRUE);
 
-INSERT INTO upvote (user_id, thread_id, reaction)
+INSERT INTO upvotes (user_id, thread_id, reaction)
 VALUES
     (1, 1, 'UP'),   
     (2, 1, 'DOWN'), 
