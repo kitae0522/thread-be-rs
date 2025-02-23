@@ -65,32 +65,67 @@ impl ThreadService {
 
     pub async fn list_recommend_thread(
         &self,
-        user_id: i64,
+        user_id: Option<i64>,
         cursor: Option<&str>,
         limit: Option<i64>,
     ) -> Result<Vec<ResponseThread>, CustomError> {
-        //
         let cursor = cursor.unwrap_or_default();
         let claims = CursorClaims::decode_cursor(cursor).unwrap_or_default();
         let limit = limit.unwrap_or(10);
 
-        let (follower_threads, popular_threads, recent_threads) = tokio::join!(
-            self.thread_repo.list_thread_by_following(user_id, claims.clone(), limit),
-            self.thread_repo.list_thread_by_popularity_score(claims.clone(), limit),
-            self.thread_repo.list_thread_by_latest_created(claims, limit)
+        let mut thread_list = match user_id {
+            Some(user_id) => {
+                self.list_personal_recommend_thread(user_id, claims.clone(), limit)
+                    .await?
+            }
+            None => self.list_guest_recommend_thread(claims, limit).await?,
+        };
+
+        thread_list.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+        Ok(thread_list.into_iter().take(limit as usize).collect())
+    }
+
+    async fn list_personal_recommend_thread(
+        &self,
+        user_id: i64,
+        cursor_claims: CursorClaims,
+        limit: i64,
+    ) -> Result<Vec<ResponseThread>, CustomError> {
+        let (common_threads, follower_threads) = tokio::join!(
+            self.list_guest_recommend_thread(cursor_claims.clone(), limit),
+            self.thread_repo.list_thread_by_following(user_id, cursor_claims, limit)
         );
 
+        // error handling
+        let common_threads = common_threads?;
         let follower_threads = follower_threads?;
+
+        let mut personal_thread_list = Vec::new();
+        personal_thread_list.extend(common_threads);
+        personal_thread_list.extend(follower_threads);
+
+        Ok(personal_thread_list)
+    }
+
+    async fn list_guest_recommend_thread(
+        &self,
+        cursor_claims: CursorClaims,
+        limit: i64,
+    ) -> Result<Vec<ResponseThread>, CustomError> {
+        let (popular_threads, recent_threads) = tokio::join!(
+            self.thread_repo
+                .list_thread_by_popularity_score(cursor_claims.clone(), limit),
+            self.thread_repo.list_thread_by_latest_created(cursor_claims, limit)
+        );
+
+        // error handling
         let popular_threads = popular_threads?;
         let recent_threads = recent_threads?;
 
-        let mut thread_list = Vec::new();
-        thread_list.extend(follower_threads);
-        thread_list.extend(popular_threads);
-        thread_list.extend(recent_threads);
+        let mut common_thread_list = Vec::new();
+        common_thread_list.extend(popular_threads);
+        common_thread_list.extend(recent_threads);
 
-        thread_list.sort_by(|item_1, item_2| item_2.created_at.cmp(&item_1.created_at));
-
-        Ok(thread_list.into_iter().take(limit as usize).collect())
+        Ok(common_thread_list)
     }
 }

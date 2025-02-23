@@ -32,11 +32,11 @@ pub fn di(db_pool: &PgPool) -> ThreadState {
 }
 
 pub async fn routes(state: ThreadState) -> Router {
-    let accessible_router = Router::new();
+    let accessible_router = Router::new().route("/feed/guest", get(guest_feed_thread));
 
     let restricted_router = Router::new()
         .route("/", post(create_thread))
-        .route("/feed", get(feed_thread))
+        .route("/feed/personal", get(personal_feed_thread))
         .route("/{id}", get(get_thread_by_id))
         .route("/user/{user_handle}", get(list_thread_by_user_handle))
         .layer(middleware::from_fn(mw_require_auth));
@@ -51,37 +51,48 @@ pub async fn create_thread(
     Extension(token_context): Extension<JwtClaims>,
     Json(create_thread_dto): Json<RequestCreateThread>,
 ) -> Result<impl IntoResponse, CustomError> {
-    match state.thread_service.create_thread(token_context.id, create_thread_dto).await {
-        Ok(success) => {
-            if success {
-                return Ok(Json(SuccessResponse::<String>::new(
-                    &"Success to create thread",
-                    None,
-                )));
-            }
-            Err(CustomError::InternalError("Failed to create thread".to_string()))
-        }
-        Err(err) => Err(err),
+    let success =
+        state.thread_service.create_thread(token_context.id, create_thread_dto).await?;
+    if success {
+        Ok(Json(SuccessResponse::<String>::new(&"Success to create thread", None)))
+    } else {
+        Err(CustomError::InternalError("Failed to create thread".to_string()))
     }
 }
 
-// GET api/thread/feed
-pub async fn feed_thread(
+// GET api/thread/feed/guest
+pub async fn guest_feed_thread(
+    State(state): State<ThreadState>,
+    Query(params): Query<RequestCursorParmas>,
+) -> Result<impl IntoResponse, CustomError> {
+    let guest_thread_list = state
+        .thread_service
+        .list_recommend_thread(None, params.cursor.as_deref(), params.limit)
+        .await?;
+    Ok(Json(SuccessResponse::new(
+        "Success to fetch thread list",
+        Some(guest_thread_list),
+    )))
+}
+
+// GET api/thread/feed/personal
+pub async fn personal_feed_thread(
     State(state): State<ThreadState>,
     Extension(token_context): Extension<JwtClaims>,
     Query(params): Query<RequestCursorParmas>,
 ) -> Result<impl IntoResponse, CustomError> {
-    match state
+    let personal_thread_list = state
         .thread_service
-        .list_recommend_thread(token_context.id, params.cursor.as_deref(), params.limit)
-        .await
-    {
-        Ok(thread_list) => Ok(Json(SuccessResponse::new(
-            "Success to fetch thread list",
-            Some(thread_list),
-        ))),
-        Err(err) => Err(err),
-    }
+        .list_recommend_thread(
+            Some(token_context.id),
+            params.cursor.as_deref(),
+            params.limit,
+        )
+        .await?;
+    Ok(Json(SuccessResponse::new(
+        "Success to fetch thread list",
+        Some(personal_thread_list),
+    )))
 }
 
 // GET api/thread/{id}
@@ -89,12 +100,8 @@ pub async fn get_thread_by_id(
     State(state): State<ThreadState>,
     Path(id): Path<i64>,
 ) -> Result<impl IntoResponse, CustomError> {
-    match state.thread_service.get_thread_by_id(id).await {
-        Ok(thread) => {
-            Ok(Json(SuccessResponse::new("Success to fetch thread", Some(thread))))
-        }
-        Err(err) => Err(err),
-    }
+    let thread = state.thread_service.get_thread_by_id(id).await?;
+    Ok(Json(SuccessResponse::new("Success to fetch thread", Some(thread))))
 }
 
 // GET api/thread/user/{user_handle}
@@ -103,15 +110,12 @@ pub async fn list_thread_by_user_handle(
     Path(user_handle): Path<String>,
     Query(params): Query<RequestCursorParmas>,
 ) -> Result<impl IntoResponse, CustomError> {
-    match state
+    let user_thread_list = state
         .thread_service
         .list_thread_by_user_handle(&user_handle, params.cursor.as_deref(), params.limit)
-        .await
-    {
-        Ok(thread_list) => Ok(Json(SuccessResponse::new(
-            "Success to fetch user based thread list",
-            Some(thread_list),
-        ))),
-        Err(err) => Err(err),
-    }
+        .await?;
+    Ok(Json(SuccessResponse::new(
+        "Success to fetch user based thread list",
+        Some(user_thread_list),
+    )))
 }
