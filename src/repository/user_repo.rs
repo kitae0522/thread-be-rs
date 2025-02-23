@@ -28,7 +28,7 @@ pub trait UserRepositoryTrait: Send + Sync {
         &self,
         id: i64,
         new_profile: RequestUpsertProfile,
-    ) -> RepositoryResult<ResponseProfile>;
+    ) -> RepositoryResult<User>;
 }
 
 pub struct UserRepository {
@@ -43,20 +43,13 @@ impl UserRepositoryTrait for UserRepository {
         }
 
         let hashed_password = crypto::hash_password(&new_user.password)?;
-        let result =
-            sqlx::query("INSERT INTO users (email, hash_password) VALUES ($1, $2)")
-                .bind(&new_user.email)
-                .bind(&hashed_password)
-                .execute(&*self.conn)
-                .await;
+        let _ = sqlx::query("INSERT INTO users (email, hash_password) VALUES ($1, $2)")
+            .bind(&new_user.email)
+            .bind(&hashed_password)
+            .execute(&*self.conn)
+            .await?;
 
-        match result {
-            Ok(_) => Ok("User created successfully".to_string()),
-            Err(err) => {
-                error!("Error creating user: {}", err);
-                Err(CustomError::DatabaseError)
-            }
-        }
+        Ok("User created successfully".to_string())
     }
 
     async fn find_user_by_email(&self, email: &str) -> RepositoryResult<User> {
@@ -64,7 +57,13 @@ impl UserRepositoryTrait for UserRepository {
     }
 
     async fn find_user_by_id(&self, id: i64) -> RepositoryResult<User> {
-        self.find_user_generic("id", &id.to_string()).await
+        let user = sqlx::query_as::<_, User>(
+            "SELECT * FROM users WHERE id = $1 AND is_deleted = FALSE",
+        )
+        .bind(id)
+        .fetch_one(&*self.conn)
+        .await?;
+        Ok(user)
     }
 
     async fn find_user_by_handle(&self, handle: &str) -> RepositoryResult<User> {
@@ -78,24 +77,13 @@ impl UserRepositoryTrait for UserRepository {
         value: &str,
     ) -> RepositoryResult<User> {
         let query = match column {
-            "id" => "SELECT * FROM users WHERE id = $1 AND is_deleted = FALSE",
             "email" => "SELECT * FROM users WHERE email = $1 AND is_deleted = FALSE",
             "handle" => "SELECT * FROM users WHERE handle = $1 AND is_deleted = FALSE",
             _ => return Err(CustomError::InvalidQuery),
         };
 
-        let user = sqlx::query_as::<_, User>(&query)
-            .bind(value)
-            .fetch_one(&*self.conn)
-            .await
-            .map_err(|err| match err {
-                sqlx::Error::RowNotFound => CustomError::NotFound("User".to_string()),
-                _ => {
-                    error!("Error finding user by {}: {}", column, err);
-                    CustomError::DatabaseError
-                }
-            })?;
-
+        let user =
+            sqlx::query_as::<_, User>(&query).bind(value).fetch_one(&*self.conn).await?;
         Ok(user)
     }
 
@@ -103,37 +91,31 @@ impl UserRepositoryTrait for UserRepository {
         &self,
         id: i64,
         new_profile: RequestUpsertProfile,
-    ) -> RepositoryResult<ResponseProfile> {
-        let affected_rows = sqlx::query(
-            "UPDATE users SET name = $1, handle = $2, profile_img_url = $3, bio = $4, is_profile_complete = TRUE WHERE id = $5"
+    ) -> RepositoryResult<User> {
+        let updated_user = sqlx::query_as::<_, User>(
+            r#"
+            UPDATE
+                users
+            SET
+                name = $1,
+                handle = $2,
+                profile_img_url = $3,
+                bio = $4,
+                is_profile_complete = TRUE
+            WHERE
+                id = $5
+            RETURNING
+                *
+            "#,
         )
         .bind(&new_profile.name)
         .bind(&new_profile.handle)
         .bind(&new_profile.profile_img_url)
         .bind(&new_profile.bio)
         .bind(id)
-        .execute(&*self.conn)
-        .await
-        .map_err(|err| {
-            error!("Error updating user profile: {}", err);
-            CustomError::DatabaseError
-        })?
-        .rows_affected();
+        .fetch_one(&*self.conn)
+        .await?;
 
-        if affected_rows > 0 {
-            let profile = sqlx::query_as::<_, ResponseProfile>(
-                "SELECT id, email, name, handle, profile_img_url, bio, created_at, updated_at FROM users WHERE id = $1"
-            )
-            .bind(id)
-            .fetch_one(&*self.conn)
-            .await
-            .map_err(|err| {
-                error!("Error fetching updated user: {}", err);
-                CustomError::DatabaseError
-            })?;
-            Ok(profile)
-        } else {
-            Err(CustomError::NotFound("User".to_string()))
-        }
+        Ok(updated_user)
     }
 }

@@ -4,16 +4,17 @@ use axum::{
     Json,
 };
 use serde::Serialize;
+use tracing::error;
 
 use crate::domain::dto::ErrorResponse;
 
 // TODO: Controller, Service, Repository... 각 레이어 별로 에러 분리할 예정
 #[derive(Debug, Serialize)]
 pub enum CustomError {
-    DatabaseError,
+    DatabaseError(String),
     AlreadyRegisteredUser(String),
     InvalidCredentials,
-    NotFound(String),
+    NotFound,
     InternalError(String),
     Forbidden(String),
     Unauthorized(String),
@@ -22,80 +23,72 @@ pub enum CustomError {
     NotFollowed,
     TrySelfFollow,
     AlreadyFollowed,
+    PasswordMismatch,
+}
+
+impl CustomError {
+    fn response_helper(&self, status_code: StatusCode, message: &str) -> Response {
+        error!("status code: {}, message: {}", status_code, message);
+        (status_code, Json(ErrorResponse::new(message, None))).into_response()
+    }
 }
 
 impl IntoResponse for CustomError {
     fn into_response(self) -> Response {
         match self {
-            CustomError::DatabaseError => (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new("Database error occurred", None)),
-            )
-                .into_response(),
-            CustomError::AlreadyRegisteredUser(user_email) => (
+            CustomError::DatabaseError(ref message) => {
+                self.response_helper(StatusCode::INTERNAL_SERVER_ERROR, &message)
+            }
+            CustomError::AlreadyRegisteredUser(ref user_email) => self.response_helper(
                 StatusCode::CONFLICT,
-                Json(ErrorResponse::new(
-                    &format!("User '{}' is already registerd", user_email),
-                    None,
-                )),
-            )
-                .into_response(),
-            CustomError::InvalidCredentials => (
-                StatusCode::BAD_REQUEST,
-                Json(ErrorResponse::new("Invalid credentials", None)),
-            )
-                .into_response(),
-            CustomError::NotFound(data) => (
-                StatusCode::NOT_FOUND,
-                Json(ErrorResponse::new(&format!("'{}' Data not found", data), None)),
-            )
-                .into_response(),
-            CustomError::InternalError(message) => (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(&message, None)),
-            )
-                .into_response(),
-            CustomError::Forbidden(message) => {
-                (StatusCode::FORBIDDEN, Json(ErrorResponse::new(&message, None)))
-                    .into_response()
+                &format!("User '{}' is already registerd", user_email),
+            ),
+            CustomError::InvalidCredentials => {
+                self.response_helper(StatusCode::BAD_REQUEST, "Invalid credentials")
             }
-            CustomError::Unauthorized(message) => {
-                (StatusCode::UNAUTHORIZED, Json(ErrorResponse::new(&message, None)))
-                    .into_response()
+            CustomError::NotFound => {
+                self.response_helper(StatusCode::NOT_FOUND, "Data not found")
             }
-            CustomError::ProfileNotCreated => (
+            CustomError::InternalError(ref message) => {
+                self.response_helper(StatusCode::INTERNAL_SERVER_ERROR, &message)
+            }
+            CustomError::Forbidden(ref message) => {
+                self.response_helper(StatusCode::FORBIDDEN, &message)
+            }
+            CustomError::Unauthorized(ref message) => {
+                self.response_helper(StatusCode::UNAUTHORIZED, &message)
+            }
+            CustomError::ProfileNotCreated => self.response_helper(
                 StatusCode::NOT_FOUND,
-                Json(ErrorResponse::new(
-                    "User profile not found. Please create your profile to continue.",
-                    None,
-                )),
-            )
-                .into_response(),
+                "User profile not found. Please create your profile to continue.",
+            ),
             CustomError::InvalidQuery => {
-                (StatusCode::BAD_REQUEST, Json(ErrorResponse::new("Invalid Query", None)))
-                    .into_response()
+                self.response_helper(StatusCode::BAD_REQUEST, "Invalid Query")
             }
-            CustomError::NotFollowed => (
+            CustomError::NotFollowed => self.response_helper(
                 StatusCode::BAD_REQUEST,
-                Json(ErrorResponse::new(
-                    "You have not followed this user. Please check your following list.",
-                    None,
-                )),
-            )
-                .into_response(),
-            CustomError::TrySelfFollow => (
+                "You have not followed this user. Please check your following list.",
+            ),
+            CustomError::TrySelfFollow => self.response_helper(
                 StatusCode::BAD_REQUEST,
-                Json(ErrorResponse::new(
-                    "You tried to follow yourself. You cannot follow yourself.",
-                    None,
-                )),
-            )
-                .into_response(),
-            CustomError::AlreadyFollowed => (
+                "You tried to follow yourself. You cannot follow yourself.",
+            ),
+            CustomError::AlreadyFollowed => self.response_helper(
                 StatusCode::BAD_REQUEST,
-                Json(ErrorResponse::new("You have already followed that user", None)),
-            )
-                .into_response(),
+                "You have already followed that user",
+            ),
+            CustomError::PasswordMismatch => {
+                self.response_helper(StatusCode::BAD_REQUEST, "Password not matched")
+            }
+        }
+    }
+}
+
+impl From<sqlx::Error> for CustomError {
+    fn from(db_error: sqlx::Error) -> Self {
+        match db_error {
+            sqlx::Error::RowNotFound => CustomError::NotFound,
+            _ => CustomError::DatabaseError(db_error.to_string()),
         }
     }
 }

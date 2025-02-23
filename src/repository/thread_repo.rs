@@ -70,10 +70,7 @@ impl ThreadRepositoryTrait for ThreadRepository {
         .bind(&new_thread.content)
         .bind(new_thread.parent_thread)
         .execute(&*self.conn)
-        .await.map_err(|err| {
-            error!("Error creating thread: {}", err);
-            CustomError::DatabaseError
-        })?;
+        .await?;
 
         Ok(true)
     }
@@ -96,11 +93,7 @@ impl ThreadRepositoryTrait for ThreadRepository {
         )
         .bind(id)
         .fetch_one(&*self.conn)
-        .await
-        .map_err(|err| {
-            error!("Error fetching thread by id: {}", err);
-            CustomError::DatabaseError
-        })?;
+        .await?;
 
         Ok(thread)
     }
@@ -135,11 +128,7 @@ impl ThreadRepositoryTrait for ThreadRepository {
         .bind(cursor.id)
         .bind(limit)
         .fetch_all(&*self.conn)
-        .await
-        .map_err(|err| {
-            error!("Error fetching user thread list: {}", err);
-            CustomError::DatabaseError
-        })?;
+        .await?;
 
         Ok(thread_list)
     }
@@ -157,18 +146,14 @@ impl ThreadRepositoryTrait for ThreadRepository {
         .bind(&new_thread.parent_thread)
         .bind(id)
         .execute(&*self.conn)
-        .await
-        .map_err(|err| {
-            error!("Error updating thread: {}", err);
-            CustomError::DatabaseError
-        })?
+        .await?
         .rows_affected();
 
         if affected_rows > 0 {
             let thread = self.get_thread_by_id(id).await?;
             Ok(thread)
         } else {
-            Err(CustomError::NotFound("Thread".to_string()))
+            Err(CustomError::NotFound)
         }
     }
 
@@ -179,17 +164,13 @@ impl ThreadRepositoryTrait for ThreadRepository {
         .bind(Utc::now().to_rfc3339())
         .bind(id)
         .execute(&*self.conn)
-        .await
-        .map_err(|err| {
-            error!("Error deleting thread: {}", err);
-            CustomError::DatabaseError
-        })?
+        .await?
         .rows_affected();
 
         if affected_rows > 0 {
             Ok(true)
         } else {
-            Err(CustomError::NotFound("Thread".to_string()))
+            Err(CustomError::NotFound)
         }
     }
 
@@ -217,11 +198,7 @@ impl ThreadRepositoryTrait for ThreadRepository {
         .bind(cursor.created_at)
         .bind(limit)
         .fetch_all(&*self.conn)
-        .await
-        .map_err(|err| {
-            error!("Error fetching thread list from user followers: {}", err);
-            CustomError::DatabaseError
-        })?;
+        .await?;
 
         Ok(thread_list)
     }
@@ -254,11 +231,7 @@ impl ThreadRepositoryTrait for ThreadRepository {
         .bind(cursor.created_at)
         .bind(limit)
         .fetch_all(&*self.conn)
-        .await
-        .map_err(|err| {
-            error!("Error fetching popularity thread list: {}", err);
-            CustomError::DatabaseError
-        })?;
+        .await?;
 
         Ok(thread_list)
     }
@@ -289,11 +262,7 @@ impl ThreadRepositoryTrait for ThreadRepository {
         .bind(cursor.created_at)
         .bind(limit)
         .fetch_all(&*self.conn)
-        .await
-        .map_err(|err| {
-            error!("Error fetching latest thread list: {}", err);
-            CustomError::DatabaseError
-        })?;
+        .await?;
 
         Ok(thread_list)
     }

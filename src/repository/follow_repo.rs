@@ -66,11 +66,7 @@ impl FollowRepositoryTrait for FollowRepository {
             .bind(user_id)
             .bind(target_user_id)
             .execute(&*self.conn)
-            .await
-            .map_err(|err| {
-                error!("Error following user: {}", err);
-                CustomError::DatabaseError
-            });
+            .await?;
 
         Ok(true)
     }
@@ -84,11 +80,7 @@ impl FollowRepositoryTrait for FollowRepository {
             .bind(user_id)
             .bind(target_user_id)
             .execute(&*self.conn)
-            .await
-            .map_err(|err| {
-                error!("Error unfollowing user: {}", err);
-                CustomError::DatabaseError
-            });
+            .await?;
 
         Ok(true)
     }
@@ -104,11 +96,7 @@ impl FollowRepositoryTrait for FollowRepository {
         .bind(user_id)
         .bind(target_user_id)
         .fetch_one(&*self.conn)
-        .await
-        .map_err(|err| {
-            error!("Error getting if user is follwing target user: {}", err);
-            CustomError::DatabaseError
-        })?;
+        .await?;
 
         Ok(count > 0)
     }
@@ -122,11 +110,7 @@ impl FollowRepositoryTrait for FollowRepository {
         .bind(user_id)
         .bind(user_id)
         .fetch_one(&*self.conn)
-        .await
-        .map_err(|err| {
-            error!("Error fetching user follow status: {}", err);
-            CustomError::DatabaseError
-        })?;
+        .await?;
 
         Ok((followers_count, following_count))
     }
@@ -154,11 +138,7 @@ impl FollowRepositoryTrait for FollowRepository {
         .bind(cursor.created_at)
         .bind(limit)
         .fetch_all(&*self.conn)
-        .await
-        .map_err(|err| {
-            error!("Error fetching user following list: {}", err);
-            CustomError::DatabaseError
-        })?;
+        .await?;
 
         Ok(following_list)
     }
@@ -186,11 +166,7 @@ impl FollowRepositoryTrait for FollowRepository {
         .bind(cursor.created_at)
         .bind(limit)
         .fetch_all(&*self.conn)
-        .await
-        .map_err(|err| {
-            error!("Error fetching user follower list: {}", err);
-            CustomError::DatabaseError
-        })?;
+        .await?;
 
         Ok(followers)
     }
