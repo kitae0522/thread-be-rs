@@ -1,12 +1,11 @@
 use async_trait::async_trait;
 use sqlx::PgPool;
 use std::sync::Arc;
-use tracing::{debug, error};
 
 use super::RepositoryResult;
 use crate::{
     domain::{
-        dto::user::{RequestSignup, RequestUpsertProfile, ResponseProfile},
+        dto::user::{RequestSignup, RequestUpsertProfile},
         model::user::User,
     },
     error::CustomError,

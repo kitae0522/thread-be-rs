@@ -1,12 +1,8 @@
 use super::RepositoryResult;
-use crate::{
-    domain::model::{cursor_claims::CursorClaims, follow::FollowList},
-    error::CustomError,
-};
+use crate::domain::model::{cursor_claims::CursorClaims, follow::FollowList};
 use async_trait::async_trait;
 use sqlx::PgPool;
 use std::sync::Arc;
-use tracing::{debug, error};
 
 #[async_trait]
 pub trait FollowRepositoryTrait: Send + Sync {
