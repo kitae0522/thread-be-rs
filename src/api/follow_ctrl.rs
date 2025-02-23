@@ -4,7 +4,7 @@ use axum::{
     extract::{Path, State},
     middleware,
     response::IntoResponse,
-    routing::{delete, post},
+    routing::post,
     Extension, Json, Router,
 };
 use sqlx::PgPool;
@@ -29,14 +29,13 @@ pub fn di(db_pool: &PgPool) -> FollowState {
 }
 
 pub fn routes(state: FollowState) -> Router {
-    let accessible_router = Router::new().with_state(state.clone());
+    let accessible_router = Router::new();
 
     let restricted_router = Router::new()
         .route("/{target_user_handle}", post(follow).delete(unfollow))
-        .layer(middleware::from_fn(mw_require_auth))
-        .with_state(state);
+        .layer(middleware::from_fn(mw_require_auth));
 
-    let routes = accessible_router.merge(restricted_router);
+    let routes = accessible_router.merge(restricted_router).with_state(state);
     routes
 }
 

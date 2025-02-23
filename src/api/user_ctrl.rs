@@ -37,18 +37,16 @@ pub async fn routes(state: AppState) -> Router {
     let accessible_router = Router::new()
         .route("/signup", post(signup))
         .route("/signin", post(signin))
-        .with_state(state.clone());
-
-    let restricted_router = Router::new()
-        .route("/profile", get(me))
-        .route("/profile", put(upsert_profile))
         .route("/{handle}", get(get_user))
         .route("/{handle}/followers", get(list_user_follower))
-        .route("/{handle}/following", get(list_user_following))
-        .layer(middleware::from_fn(mw_require_auth))
-        .with_state(state);
+        .route("/{handle}/following", get(list_user_following));
 
-    let routes = accessible_router.merge(restricted_router);
+    let restricted_router = Router::new()
+        .route("/me", get(me))
+        .route("/me/profile", put(upsert_profile))
+        .layer(middleware::from_fn(mw_require_auth));
+
+    let routes = accessible_router.merge(restricted_router).with_state(state);
     routes
 }
 
@@ -74,7 +72,7 @@ pub async fn signin(
     }
 }
 
-// GET api/user/profile
+// GET api/user/me
 pub async fn me(
     State(state): State<AppState>,
     Extension(token_context): Extension<JwtClaims>,
@@ -87,7 +85,7 @@ pub async fn me(
     }
 }
 
-// PUT api/user/profile
+// PUT api/user/me/profile
 pub async fn upsert_profile(
     State(state): State<AppState>,
     Extension(token_context): Extension<JwtClaims>,

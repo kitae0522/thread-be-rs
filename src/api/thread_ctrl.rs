@@ -4,7 +4,7 @@ use axum::{
     extract::{Path, Query, State},
     middleware,
     response::IntoResponse,
-    routing::{get, post, put},
+    routing::{get, post},
     Extension, Json, Router,
 };
 use sqlx::PgPool;
@@ -32,17 +32,16 @@ pub fn di(db_pool: &PgPool) -> ThreadState {
 }
 
 pub async fn routes(state: ThreadState) -> Router {
-    let accessible_router = Router::new().with_state(state.clone());
+    let accessible_router = Router::new();
 
     let restricted_router = Router::new()
         .route("/", post(create_thread))
         .route("/feed", get(feed_thread))
         .route("/{id}", get(get_thread_by_id))
         .route("/user/{user_handle}", get(list_thread_by_user_handle))
-        .layer(middleware::from_fn(mw_require_auth))
-        .with_state(state);
+        .layer(middleware::from_fn(mw_require_auth));
 
-    let routes = accessible_router.merge(restricted_router);
+    let routes = accessible_router.merge(restricted_router).with_state(state);
     routes
 }
 

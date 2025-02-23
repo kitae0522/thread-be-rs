@@ -32,11 +32,9 @@ pub async fn routes_all(db_pool: &PgPool) -> Router {
 }
 
 async fn health_check_handler() -> impl IntoResponse {
-    println!("->> {:<12} - health_check_handler", "HANDLER");
     Json(json!({"message": "pong"}))
 }
 
 async fn fallback_handler() -> impl IntoResponse {
-    println!("->> {:<12} - fallback_handler", "HANDLER");
     StatusCode::NOT_FOUND
 }
