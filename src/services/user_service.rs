@@ -30,6 +30,10 @@ impl UserService {
     }
 
     pub async fn signup(&self, user: RequestSignup) -> Result<String, CustomError> {
+        if user.password != user.password_confirm {
+            return Err(CustomError::PasswordMismatch);
+        }
+
         match self.user_repo.create_user(user).await {
             Ok(msg) => Ok(msg),
             Err(msg) => Err(msg),
@@ -77,12 +81,22 @@ impl UserService {
         profile: RequestUpsertProfile,
     ) -> Result<ResponseProfile, CustomError> {
         let user = self.user_repo.find_user_by_id(id).await?;
-        let mut profile = self.user_repo.upsert_profile(user.id, profile).await?;
+        let profile = self.user_repo.upsert_profile(user.id, profile).await?;
         let (follower_count, following_count) =
             self.follow_repo.get_follow_status(user.id).await?;
-        profile.follower_count = follower_count;
-        profile.following_count = following_count;
-        Ok(profile)
+
+        Ok(ResponseProfile {
+            id: user.id,
+            email: user.email,
+            name: profile.name.unwrap_or_default(),
+            handle: profile.handle.unwrap_or_default(),
+            bio: profile.bio,
+            profile_img_url: profile.profile_img_url.unwrap_or_default(),
+            created_at: profile.created_at,
+            updated_at: profile.updated_at,
+            follower_count,
+            following_count,
+        })
     }
 
     pub async fn get_user(
