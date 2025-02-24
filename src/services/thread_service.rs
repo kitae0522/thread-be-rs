@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::{
     domain::{
-        dto::thread::{RequestCreateThread, ResponseThread},
+        dto::thread::{RequestCreateThread, ResponseThread, ResponseThreadTree},
         model::cursor_claims::CursorClaims,
     },
     error::CustomError,
@@ -39,8 +39,23 @@ impl ThreadService {
         self.thread_repo.create_thread(user_id, thread).await
     }
 
-    pub async fn get_thread_by_id(&self, id: i64) -> Result<ResponseThread, CustomError> {
-        self.thread_repo.get_thread_by_id(id).await
+    pub async fn get_thread_by_id(
+        &self,
+        id: i64,
+        cursor: Option<&str>,
+        limit: Option<i64>,
+    ) -> Result<ResponseThreadTree, CustomError> {
+        let cursor = cursor.unwrap_or_default();
+        let claims = CursorClaims::decode_cursor(cursor).unwrap_or_default();
+        let limit = limit.unwrap_or(10);
+
+        let thread = self.thread_repo.get_thread_by_id(id).await?;
+        let subthread = self
+            .thread_repo
+            .list_subthread_by_parent_id(thread.id, claims, limit)
+            .await?;
+
+        Ok(ResponseThreadTree { thread, subthread })
     }
 
     pub async fn list_thread_by_user_handle(
@@ -56,8 +71,8 @@ impl ThreadService {
 
         let cursor = cursor.unwrap_or_default();
         let claims = CursorClaims::decode_cursor(cursor).unwrap_or_default();
-
         let limit = limit.unwrap_or(10);
+
         let thread_list =
             self.thread_repo.list_thread_by_user_id(user.id, claims, limit).await?;
         Ok(thread_list)

@@ -26,6 +26,7 @@ pub struct ResponseThread {
     pub parent_thread: Option<i64>,
     pub upvote: i64,
     pub views: i64,
+    pub reply_count: i64,
 
     pub is_deleted: bool,
     pub deleted_at: Option<DateTime<Utc>>,
@@ -33,4 +34,8 @@ pub struct ResponseThread {
     pub updated_at: DateTime<Utc>,
 }
 
-
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct ResponseThreadTree {
+    pub thread: ResponseThread,
+    pub subthread: Vec<ResponseThread>,
+}

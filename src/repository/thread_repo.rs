@@ -48,6 +48,12 @@ pub trait ThreadRepositoryTrait: Send + Sync {
         cursor: CursorClaims,
         limit: i64,
     ) -> RepositoryResult<Vec<ResponseThread>>;
+    async fn list_subthread_by_parent_id(
+        &self,
+        thread_id: i64,
+        cursor: CursorClaims,
+        limit: i64,
+    ) -> RepositoryResult<Vec<ResponseThread>>;
 }
 
 pub struct ThreadRepository {
@@ -81,7 +87,8 @@ impl ThreadRepositoryTrait for ThreadRepository {
                 t.*,
                 (COALESCE(SUM(CASE WHEN u.reaction = 'UP' THEN 1 ELSE 0 END), 0) + 
                 COALESCE(SUM(CASE WHEN u.reaction = 'DOWN' THEN -1 ELSE 0 END), 0)) AS upvote,
-                COALESCE(MAX(v.view_count), 0) AS views
+                COALESCE(MAX(v.view_count), 0) AS views,
+                (SELECT COUNT(*) FROM thread WHERE parent_thread = $1) AS reply_count
             FROM thread t
             LEFT JOIN upvotes u ON u.thread_id = t.id
             LEFT JOIN views v ON v.thread_id = t.id
@@ -109,7 +116,8 @@ impl ThreadRepositoryTrait for ThreadRepository {
                 t.*,
                 (COALESCE(SUM(CASE WHEN u.reaction = 'UP' THEN 1 ELSE 0 END), 0) +
                 COALESCE(SUM(CASE WHEN u.reaction = 'DOWN' THEN -1 ELSE 0 END), 0)) AS upvote,
-                COALESCE(MAX(v.view_count), 0) AS views
+                COALESCE(MAX(v.view_count), 0) AS views,
+                (SELECT COUNT(*) FROM thread WHERE parent_thread = t.id) AS reply_count
             FROM thread t
             LEFT JOIN upvotes u ON u.thread_id = t.id
             LEFT JOIN views v ON v.thread_id = t.id
@@ -185,7 +193,8 @@ impl ThreadRepositoryTrait for ThreadRepository {
                 t.*,
                 COALESCE(SUM(CASE WHEN u.reaction = 'UP' THEN 1 ELSE 0 END), 0) +
                 COALESCE(SUM(CASE WHEN u.reaction = 'DOWN' THEN -1 ELSE 0 END), 0) AS upvote,
-                COALESCE(MAX(v.view_count), 0) AS views
+                COALESCE(MAX(v.view_count), 0) AS views,
+                (SELECT COUNT(*) FROM thread WHERE parent_thread = t.id) AS reply_count
             FROM thread t
             LEFT JOIN upvotes u ON u.thread_id = t.id
             LEFT JOIN views v ON v.thread_id = t.id
@@ -220,6 +229,7 @@ impl ThreadRepositoryTrait for ThreadRepository {
                 (COALESCE(SUM(CASE WHEN u.reaction = 'UP' THEN 1 ELSE 0 END), 0) +
                 COALESCE(SUM(CASE WHEN u.reaction = 'DOWN' THEN -1 ELSE 0 END), 0)) AS upvote,
                 COALESCE(MAX(v.view_count), 0) AS views,
+                (SELECT COUNT(*) FROM thread WHERE parent_thread = t.id) AS reply_count,
                 (COALESCE(COUNT(u.thread_id), 0) * 2 + COALESCE(MAX(v.view_count), 0) * 0.5) 
                 / POW((EXTRACT(EPOCH FROM CURRENT_TIMESTAMP) - EXTRACT(EPOCH FROM t.created_at)) / 3600.0 + 2, 1.5) AS adj_score
             FROM thread t
@@ -252,7 +262,8 @@ impl ThreadRepositoryTrait for ThreadRepository {
                 t.*,
                 (COALESCE(SUM(CASE WHEN u.reaction = 'UP' THEN 1 ELSE 0 END), 0) +
                 COALESCE(SUM(CASE WHEN u.reaction = 'DOWN' THEN -1 ELSE 0 END), 0)) AS upvote,
-                COALESCE(MAX(v.view_count), 0) AS views
+                COALESCE(MAX(v.view_count), 0) AS views,
+                (SELECT COUNT(*) FROM thread WHERE parent_thread = t.id) AS reply_count
             FROM thread t
             LEFT JOIN upvotes u ON u.thread_id = t.id
             LEFT JOIN views v ON v.thread_id = t.id
@@ -270,5 +281,39 @@ impl ThreadRepositoryTrait for ThreadRepository {
         .await?;
 
         Ok(thread_list)
+    }
+
+    async fn list_subthread_by_parent_id(
+        &self,
+        thread_id: i64,
+        cursor: CursorClaims,
+        limit: i64,
+    ) -> RepositoryResult<Vec<ResponseThread>> {
+        let subthread_list = sqlx::query_as::<_, ResponseThread>(
+            r#"
+            SELECT
+                t.*,
+                (COALESCE(SUM(CASE WHEN u.reaction = 'UP' THEN 1 ELSE 0 END), 0) +
+                COALESCE(SUM(CASE WHEN u.reaction = 'DOWN' THEN -1 ELSE 0 END), 0)) AS upvote,
+                COALESCE(MAX(v.view_count), 0) AS views,
+                (SELECT COUNT(*) FROM thread WHERE parent_thread = $1) AS reply_count
+            FROM thread t
+            LEFT JOIN upvotes u ON u.thread_id = t.id
+            LEFT JOIN views v ON v.thread_id = t.id
+            WHERE t.parent_thread = $1
+            AND t.created_at < $2
+            AND t.is_deleted = FALSE
+            GROUP BY t.id
+            ORDER BY upvote DESC, created_at DESC
+            LIMIT $3
+            "#,
+        )
+        .bind(thread_id)
+        .bind(cursor.created_at)
+        .bind(limit)
+        .fetch_all(&*self.conn)
+        .await?;
+
+        Ok(subthread_list)
     }
 }

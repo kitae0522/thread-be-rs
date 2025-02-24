@@ -99,8 +99,12 @@ pub async fn personal_feed_thread(
 pub async fn get_thread_by_id(
     State(state): State<ThreadState>,
     Path(id): Path<i64>,
+    Query(params): Query<RequestCursorParmas>,
 ) -> Result<impl IntoResponse, CustomError> {
-    let thread = state.thread_service.get_thread_by_id(id).await?;
+    let thread = state
+        .thread_service
+        .get_thread_by_id(id, params.cursor.as_deref(), params.limit)
+        .await?;
     Ok(Json(SuccessResponse::new("Success to fetch thread", Some(thread))))
 }
 
