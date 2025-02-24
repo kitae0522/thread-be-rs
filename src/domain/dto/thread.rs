@@ -24,7 +24,7 @@ pub struct ResponseThread {
     pub title: Option<String>,
     pub content: String,
     pub parent_thread: Option<i64>,
-    pub upvote: i64,
+    pub votes: i64,
     pub views: i64,
     pub reply_count: i64,
 
