@@ -34,6 +34,12 @@ pub struct UserRepository {
     pub conn: Arc<PgPool>,
 }
 
+impl UserRepository {
+    pub fn new(conn: Arc<PgPool>) -> Self {
+        Self { conn }
+    }
+}
+
 #[async_trait]
 impl UserRepositoryTrait for UserRepository {
     async fn create_user(&self, new_user: RequestSignup) -> Result<String, CustomError> {

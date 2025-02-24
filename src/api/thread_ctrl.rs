@@ -24,8 +24,9 @@ use crate::{
 pub fn di(db_pool: &PgPool) -> ThreadState {
     let db_pool = Arc::new(db_pool.clone());
 
-    let user_repo = Arc::new(UserRepository { conn: db_pool.clone() });
-    let thread_repo = Arc::new(ThreadRepository { conn: db_pool });
+    let user_repo = Arc::new(UserRepository::new(db_pool.clone()));
+    let thread_repo = Arc::new(ThreadRepository::new(db_pool));
+
     let thread_service = Arc::new(ThreadService::new(user_repo, thread_repo));
 
     ThreadState { thread_service }

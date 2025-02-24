@@ -26,8 +26,9 @@ use crate::{
 pub fn di(db_pool: &PgPool) -> UserState {
     let db_pool = Arc::new(db_pool.clone());
 
-    let user_repo = Arc::new(UserRepository { conn: db_pool.clone() });
-    let follow_repo = Arc::new(FollowRepository { conn: db_pool });
+    let user_repo = Arc::new(UserRepository::new(db_pool.clone()));
+    let follow_repo = Arc::new(FollowRepository::new(db_pool));
+
     let user_service = Arc::new(UserService::new(user_repo.clone(), follow_repo.clone()));
     let follow_service = Arc::new(FollowService::new(user_repo, follow_repo));
 

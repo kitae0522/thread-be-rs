@@ -51,6 +51,12 @@ pub struct FollowRepository {
     pub conn: Arc<PgPool>,
 }
 
+impl FollowRepository {
+    pub fn new(conn: Arc<PgPool>) -> Self {
+        Self { conn }
+    }
+}
+
 #[async_trait]
 impl FollowRepositoryTrait for FollowRepository {
     async fn follow_user(

@@ -60,6 +60,12 @@ pub struct ThreadRepository {
     pub conn: Arc<PgPool>,
 }
 
+impl ThreadRepository {
+    pub fn new(conn: Arc<PgPool>) -> Self {
+        Self { conn }
+    }
+}
+
 #[async_trait]
 impl ThreadRepositoryTrait for ThreadRepository {
     async fn create_thread(
