@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-use chrono::Utc;
 use sqlx::PgPool;
 use std::sync::Arc;
 
@@ -18,7 +17,7 @@ pub trait ThreadRepositoryTrait: Send + Sync {
         &self,
         user_id: i64,
         new_thread: RequestCreateThread,
-    ) -> RepositoryResult<bool>;
+    ) -> RepositoryResult<i64>;
     async fn get_thread_by_id(&self, id: i64) -> RepositoryResult<ResponseThread>;
     async fn list_thread_by_user_id(
         &self,
@@ -72,18 +71,18 @@ impl ThreadRepositoryTrait for ThreadRepository {
         &self,
         user_id: i64,
         new_thread: RequestCreateThread,
-    ) -> RepositoryResult<bool> {
-        let _ = sqlx::query(
-            "INSERT INTO thread (user_id, title, content, parent_thread) VALUES ($1, $2, $3, $4)",
+    ) -> RepositoryResult<i64> {
+        let thread_id = sqlx::query_scalar::<_, i64>(
+            "INSERT INTO thread (user_id, title, content, parent_thread) VALUES ($1, $2, $3, $4) RETURNING id",
         )
         .bind(user_id)
         .bind(new_thread.title)
         .bind(&new_thread.content)
         .bind(new_thread.parent_thread)
-        .execute(&*self.conn)
+        .fetch_one(&*self.conn)
         .await?;
 
-        Ok(true)
+        Ok(thread_id)
     }
 
     async fn get_thread_by_id(&self, id: i64) -> RepositoryResult<ResponseThread> {
@@ -172,9 +171,8 @@ impl ThreadRepositoryTrait for ThreadRepository {
 
     async fn delete_thread(&self, id: i64) -> RepositoryResult<bool> {
         let affected_rows = sqlx::query(
-            "UPDATE thread SET is_deleted = TRUE, deleted_at = $1 WHERE id = $2",
+            "UPDATE thread SET is_deleted = TRUE, deleted_at = NOW() WHERE id = $1",
         )
-        .bind(Utc::now().to_rfc3339())
         .bind(id)
         .execute(&*self.conn)
         .await?

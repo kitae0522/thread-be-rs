@@ -2,7 +2,9 @@ use std::sync::Arc;
 
 use crate::{
     domain::{
-        dto::thread::{RequestCreateThread, ResponseThread, ResponseThreadTree},
+        dto::thread::{
+            RequestCreateThread, RequestUpdateThread, ResponseThread, ResponseThreadTree,
+        },
         model::cursor_claims::CursorClaims,
     },
     error::CustomError,
@@ -35,8 +37,10 @@ impl ThreadService {
         &self,
         user_id: i64,
         thread: RequestCreateThread,
-    ) -> Result<bool, CustomError> {
-        self.thread_repo.create_thread(user_id, thread).await
+    ) -> Result<ResponseThread, CustomError> {
+        let thread_id = self.thread_repo.create_thread(user_id, thread).await?;
+        let thread = self.thread_repo.get_thread_by_id(thread_id).await?;
+        Ok(thread)
     }
 
     pub async fn get_thread_by_id(
@@ -142,5 +146,39 @@ impl ThreadService {
         common_thread_list.extend(recent_threads);
 
         Ok(common_thread_list)
+    }
+
+    async fn check_thread_permission(
+        &self,
+        user_id: i64,
+        thread_id: i64,
+    ) -> Result<i64, CustomError> {
+        let thread = self.thread_repo.get_thread_by_id(thread_id).await?;
+        if user_id == thread.user_id {
+            Ok(thread_id)
+        } else {
+            Err(CustomError::PermissionDenied(
+                "You do not have permission to modify or delete this thread.".to_owned(),
+            ))
+        }
+    }
+
+    pub async fn update_thread_by_id(
+        &self,
+        user_id: i64,
+        thread_id: i64,
+        thread_dto: RequestUpdateThread,
+    ) -> Result<ResponseThread, CustomError> {
+        self.check_thread_permission(user_id, thread_id).await?;
+        self.thread_repo.update_thread(thread_id, thread_dto).await
+    }
+
+    pub async fn delete_thread_by_id(
+        &self,
+        user_id: i64,
+        thread_id: i64,
+    ) -> Result<bool, CustomError> {
+        self.check_thread_permission(user_id, thread_id).await?;
+        self.thread_repo.delete_thread(thread_id).await
     }
 }

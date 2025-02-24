@@ -5,14 +5,16 @@ use tracing::error;
 pub async fn mw_require_auth(mut req: Request<Body>, next: Next) -> impl IntoResponse {
     let auth_header = req.headers().get("Authorization");
     if auth_header.is_none() {
-        return CustomError::Forbidden("Authorization header is missing".to_string())
-            .into_response();
+        return CustomError::PermissionDenied(
+            "Authorization header is missing".to_string(),
+        )
+        .into_response();
     }
 
     let auth_str = match auth_header.unwrap().to_str() {
         Ok(auth_str) => auth_str,
         Err(_) => {
-            return CustomError::Forbidden(
+            return CustomError::PermissionDenied(
                 "Invalid Authorization header format".to_string(),
             )
             .into_response();
@@ -20,7 +22,7 @@ pub async fn mw_require_auth(mut req: Request<Body>, next: Next) -> impl IntoRes
     };
 
     if !auth_str.starts_with("Bearer ") {
-        return CustomError::Forbidden(
+        return CustomError::PermissionDenied(
             "Authorization header must be in Bearer format".to_string(),
         )
         .into_response();

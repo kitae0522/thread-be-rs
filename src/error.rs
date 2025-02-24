@@ -17,7 +17,7 @@ pub enum CustomError {
     InvalidCredentials,
     NotFound,
     InternalError(String),
-    Forbidden(String),
+    PermissionDenied(String),
     Unauthorized(String),
     ProfileNotCreated,
     InvalidQuery,
@@ -56,7 +56,7 @@ impl IntoResponse for CustomError {
             CustomError::InternalError(ref message) => {
                 self.response_helper(StatusCode::INTERNAL_SERVER_ERROR, &message)
             }
-            CustomError::Forbidden(ref message) => {
+            CustomError::PermissionDenied(ref message) => {
                 self.response_helper(StatusCode::FORBIDDEN, &message)
             }
             CustomError::Unauthorized(ref message) => {

@@ -4,7 +4,7 @@ use axum::{
     extract::{Path, Query, State},
     middleware,
     response::IntoResponse,
-    routing::{get, post},
+    routing::{get, post, put},
     Extension, Json, Router,
 };
 use sqlx::PgPool;
@@ -12,7 +12,10 @@ use sqlx::PgPool;
 use crate::{
     config::app_state::ThreadState,
     domain::{
-        dto::{thread::RequestCreateThread, RequestCursorParmas, SuccessResponse},
+        dto::{
+            thread::{RequestCreateThread, RequestUpdateThread},
+            RequestCursorParmas, SuccessResponse,
+        },
         model::jwt_claims::JwtClaims,
     },
     error::CustomError,
@@ -33,12 +36,14 @@ pub fn di(db_pool: &PgPool) -> ThreadState {
 }
 
 pub async fn routes(state: ThreadState) -> Router {
-    let accessible_router = Router::new().route("/feed/guest", get(guest_feed_thread));
+    let accessible_router = Router::new()
+        .route("/feed/guest", get(guest_feed_thread))
+        .route("/{id}", get(get_thread_by_id));
 
     let restricted_router = Router::new()
         .route("/", post(create_thread))
+        .route("/{id}", put(update_thread).delete(delete_thread))
         .route("/feed/personal", get(personal_feed_thread))
-        .route("/{id}", get(get_thread_by_id))
         .route("/user/{user_handle}", get(list_thread_by_user_handle))
         .layer(middleware::from_fn(mw_require_auth));
 
@@ -52,13 +57,9 @@ pub async fn create_thread(
     Extension(token_context): Extension<JwtClaims>,
     Json(create_thread_dto): Json<RequestCreateThread>,
 ) -> Result<impl IntoResponse, CustomError> {
-    let success =
+    let new_thread =
         state.thread_service.create_thread(token_context.id, create_thread_dto).await?;
-    if success {
-        Ok(Json(SuccessResponse::<String>::new(&"Success to create thread", None)))
-    } else {
-        Err(CustomError::InternalError("Failed to create thread".to_string()))
-    }
+    Ok(Json(SuccessResponse::new("Success to create thread", Some(new_thread))))
 }
 
 // GET api/thread/feed/guest
@@ -107,6 +108,30 @@ pub async fn get_thread_by_id(
         .get_thread_by_id(id, params.cursor.as_deref(), params.limit)
         .await?;
     Ok(Json(SuccessResponse::new("Success to fetch thread", Some(thread))))
+}
+
+// PUT api/thread/{id}
+pub async fn update_thread(
+    State(state): State<ThreadState>,
+    Extension(token_context): Extension<JwtClaims>,
+    Path(id): Path<i64>,
+    Json(update_thread_dto): Json<RequestUpdateThread>,
+) -> Result<impl IntoResponse, CustomError> {
+    let thread = state
+        .thread_service
+        .update_thread_by_id(token_context.id, id, update_thread_dto)
+        .await?;
+    Ok(Json(SuccessResponse::new("Success to update thread", Some(thread))))
+}
+
+// DELETE api/thread/{id}
+pub async fn delete_thread(
+    State(state): State<ThreadState>,
+    Extension(token_context): Extension<JwtClaims>,
+    Path(id): Path<i64>,
+) -> Result<impl IntoResponse, CustomError> {
+    let _ok = state.thread_service.delete_thread_by_id(token_context.id, id).await?;
+    Ok(Json(SuccessResponse::<String>::new("Success to delete thread", None)))
 }
 
 // GET api/thread/user/{user_handle}
