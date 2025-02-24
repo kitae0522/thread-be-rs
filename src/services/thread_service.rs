@@ -9,6 +9,7 @@ use crate::{
     },
     error::CustomError,
     repository::{thread_repo::ThreadRepositoryTrait, user_repo::UserRepositoryTrait},
+    utils,
 };
 
 pub struct ThreadService {
@@ -49,14 +50,12 @@ impl ThreadService {
         cursor: Option<&str>,
         limit: Option<i64>,
     ) -> Result<ResponseThreadTree, CustomError> {
-        let cursor = cursor.unwrap_or_default();
-        let claims = CursorClaims::decode_cursor(cursor).unwrap_or_default();
-        let limit = limit.unwrap_or(10);
+        let (cursor, limit) = utils::cursor::preprocessing_cursor(cursor, limit);
 
         let thread = self.thread_repo.get_thread_by_id(id).await?;
         let subthread = self
             .thread_repo
-            .list_subthread_by_parent_id(thread.id, claims, limit)
+            .list_subthread_by_parent_id(thread.id, cursor, limit)
             .await?;
 
         Ok(ResponseThreadTree { thread, subthread })
@@ -73,12 +72,10 @@ impl ThreadService {
             return Err(CustomError::ProfileNotCreated);
         }
 
-        let cursor = cursor.unwrap_or_default();
-        let claims = CursorClaims::decode_cursor(cursor).unwrap_or_default();
-        let limit = limit.unwrap_or(10);
+        let (cursor, limit) = utils::cursor::preprocessing_cursor(cursor, limit);
 
         let thread_list =
-            self.thread_repo.list_thread_by_user_id(user.id, claims, limit).await?;
+            self.thread_repo.list_thread_by_user_id(user.id, cursor, limit).await?;
         Ok(thread_list)
     }
 
@@ -88,16 +85,14 @@ impl ThreadService {
         cursor: Option<&str>,
         limit: Option<i64>,
     ) -> Result<Vec<ResponseThread>, CustomError> {
-        let cursor = cursor.unwrap_or_default();
-        let claims = CursorClaims::decode_cursor(cursor).unwrap_or_default();
-        let limit = limit.unwrap_or(10);
+        let (cursor, limit) = utils::cursor::preprocessing_cursor(cursor, limit);
 
         let mut thread_list = match user_id {
             Some(user_id) => {
-                self.list_personal_recommend_thread(user_id, claims.clone(), limit)
+                self.list_personal_recommend_thread(user_id, cursor.clone(), limit)
                     .await?
             }
-            None => self.list_guest_recommend_thread(claims, limit).await?,
+            None => self.list_guest_recommend_thread(cursor, limit).await?,
         };
 
         thread_list.sort_by(|a, b| b.created_at.cmp(&a.created_at));

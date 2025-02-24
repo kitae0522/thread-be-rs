@@ -13,7 +13,7 @@ use crate::{
     },
     error::CustomError,
     repository::{follow_repo::FollowRepositoryTrait, user_repo::UserRepositoryTrait},
-    utils::crypto,
+    utils::{self, crypto},
 };
 
 pub struct UserService {
@@ -151,12 +151,10 @@ impl UserService {
         let mut user = self.user_repo.find_user_by_handle(user_handle).await?;
         user = self.validate_user(user).await?;
 
-        let cursor = cursor.unwrap_or_default();
-        let claims = CursorClaims::decode_cursor(cursor).unwrap_or_default();
+        let (cursor, limit) = utils::cursor::preprocessing_cursor(cursor, limit);
 
-        let limit = limit.unwrap_or(10);
         let following_list =
-            self.follow_repo.list_following(user.id, claims, limit).await?;
+            self.follow_repo.list_following(user.id, cursor, limit).await?;
         Ok(following_list)
     }
 
