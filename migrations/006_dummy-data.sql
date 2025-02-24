@@ -107,7 +107,7 @@ VALUES
     (12, NULL, 'Cactus therapy', 42, FALSE, NULL, '2025-02-13 15:10:00', '2025-02-13 15:10:00'),
     (13, NULL, 'Binge pro', 45, FALSE, NULL, '2025-02-16 12:10:00', '2025-02-16 12:10:00');
 
-INSERT INTO upvotes
+INSERT INTO votes
     (user_id, thread_id, reaction, created_at)
 VALUES
     (2, 1, 'UP', '2025-02-01 10:02:00'), (3, 1, 'UP', '2025-02-01 10:03:00'), (4, 1, 'UP', '2025-02-01 10:04:00'),
