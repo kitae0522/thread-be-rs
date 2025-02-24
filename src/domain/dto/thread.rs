@@ -36,6 +36,32 @@ pub struct ResponseThread {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ResponseThreadTree {
-    pub thread: ResponseThread,
-    pub subthread: Vec<ResponseThread>,
+    pub thread: ResponseThreadWithUserProfile,
+    pub subthread: Vec<ResponseThreadWithUserProfile>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct ResponseThreadWithUserProfile {
+    pub id: i64,
+    pub title: Option<String>,
+    pub content: String,
+    pub parent_thread: Option<i64>,
+
+    pub user_profile: UserProfile,
+
+    pub votes: i64,
+    pub views: i64,
+    pub reply_count: i64,
+
+    pub is_deleted: bool,
+    pub deleted_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct UserProfile {
+    pub id: i64,
+    pub handle: String,
+    pub profile_img: String,
 }

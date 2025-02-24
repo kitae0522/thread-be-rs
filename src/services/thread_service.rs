@@ -4,6 +4,7 @@ use crate::{
     domain::{
         dto::thread::{
             RequestCreateThread, RequestUpdateThread, ResponseThread, ResponseThreadTree,
+            ResponseThreadWithUserProfile, UserProfile,
         },
         model::cursor_claims::CursorClaims,
     },
@@ -53,10 +54,13 @@ impl ThreadService {
         let (cursor, limit) = utils::cursor::preprocessing_cursor(cursor, limit);
 
         let thread = self.thread_repo.get_thread_by_id(id).await?;
+        let thread = self.enrich_thread_with_user_profile(thread).await?;
+
         let subthread = self
             .thread_repo
             .list_subthread_by_parent_id(thread.id, cursor, limit)
             .await?;
+        let subthread = self.enrich_thread_list_with_user_profile(subthread).await?;
 
         Ok(ResponseThreadTree { thread, subthread })
     }
@@ -66,7 +70,7 @@ impl ThreadService {
         user_handle: &str,
         cursor: Option<&str>,
         limit: Option<i64>,
-    ) -> Result<Vec<ResponseThread>, CustomError> {
+    ) -> Result<Vec<ResponseThreadWithUserProfile>, CustomError> {
         let user = self.user_repo.find_user_by_handle(user_handle).await?;
         if !user.is_profile_complete {
             return Err(CustomError::ProfileNotCreated);
@@ -76,7 +80,9 @@ impl ThreadService {
 
         let thread_list =
             self.thread_repo.list_thread_by_user_id(user.id, cursor, limit).await?;
-        Ok(thread_list)
+        let enrich_thread_list =
+            self.enrich_thread_list_with_user_profile(thread_list).await?;
+        Ok(enrich_thread_list)
     }
 
     pub async fn list_recommend_thread(
@@ -84,7 +90,7 @@ impl ThreadService {
         user_id: Option<i64>,
         cursor: Option<&str>,
         limit: Option<i64>,
-    ) -> Result<Vec<ResponseThread>, CustomError> {
+    ) -> Result<Vec<ResponseThreadWithUserProfile>, CustomError> {
         let (cursor, limit) = utils::cursor::preprocessing_cursor(cursor, limit);
 
         let mut thread_list = match user_id {
@@ -94,9 +100,11 @@ impl ThreadService {
             }
             None => self.list_guest_recommend_thread(cursor, limit).await?,
         };
-
         thread_list.sort_by(|a, b| b.created_at.cmp(&a.created_at));
-        Ok(thread_list.into_iter().take(limit as usize).collect())
+
+        let enrich_thread_list =
+            self.enrich_thread_list_with_user_profile(thread_list).await?;
+        Ok(enrich_thread_list.into_iter().take(limit as usize).collect())
     }
 
     async fn list_personal_recommend_thread(
@@ -175,5 +183,43 @@ impl ThreadService {
     ) -> Result<bool, CustomError> {
         self.check_thread_permission(user_id, thread_id).await?;
         self.thread_repo.delete_thread(thread_id).await
+    }
+
+    async fn enrich_thread_with_user_profile(
+        &self,
+        thread: ResponseThread,
+    ) -> Result<ResponseThreadWithUserProfile, CustomError> {
+        let user = self.user_repo.find_user_by_id(thread.user_id).await?;
+        let user_profile = UserProfile {
+            id: thread.id,
+            handle: user.handle.unwrap_or_default(),
+            profile_img: user.profile_img_url.unwrap_or_default(),
+        };
+        Ok(ResponseThreadWithUserProfile {
+            id: thread.id,
+            title: thread.title,
+            content: thread.content,
+            parent_thread: thread.parent_thread,
+            votes: thread.votes,
+            views: thread.views,
+            reply_count: thread.reply_count,
+            is_deleted: thread.is_deleted,
+            deleted_at: thread.deleted_at,
+            created_at: thread.created_at,
+            updated_at: thread.updated_at,
+            user_profile,
+        })
+    }
+
+    async fn enrich_thread_list_with_user_profile(
+        &self,
+        thread_list: Vec<ResponseThread>,
+    ) -> Result<Vec<ResponseThreadWithUserProfile>, CustomError> {
+        let mut enrich_thread_list = Vec::new();
+        for thread in thread_list {
+            let enrich_thread = self.enrich_thread_with_user_profile(thread).await?;
+            enrich_thread_list.push(enrich_thread)
+        }
+        Ok(enrich_thread_list)
     }
 }
