@@ -1,2 +1,6 @@
-pub mod thread_ctrl;
-pub mod user_ctrl;
+pub mod handlers;
+pub mod middleware;
+pub mod routes;
+
+pub mod server;
+pub mod state;

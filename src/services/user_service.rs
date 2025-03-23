@@ -6,14 +6,11 @@ use crate::{
             RequestSignin, RequestSignup, RequestUpsertProfile, ResponseProfile,
             ResponseSignin,
         },
-        model::{
-            cursor_claims::CursorClaims, follow::FollowList, jwt_claims::JwtClaims,
-            user::User,
-        },
+        model::{jwt_claims::JwtClaims, user::User},
     },
     error::CustomError,
     repository::{follow_repo::FollowRepositoryTrait, user_repo::UserRepositoryTrait},
-    utils::{self, crypto},
+    utils::crypto,
 };
 
 pub struct UserService {
@@ -122,40 +119,6 @@ impl UserService {
             follower_count,
             following_count,
         })
-    }
-
-    pub async fn list_user_follower(
-        &self,
-        user_handle: &str,
-        cursor: Option<&str>,
-        limit: Option<i64>,
-    ) -> Result<Vec<FollowList>, CustomError> {
-        let mut user = self.user_repo.find_user_by_handle(user_handle).await?;
-        user = self.validate_user(user).await?;
-
-        let cursor = cursor.unwrap_or_default();
-        let claims = CursorClaims::decode_cursor(cursor).unwrap_or_default();
-
-        let limit = limit.unwrap_or(10);
-        let follower_list =
-            self.follow_repo.list_follower(user.id, claims, limit).await?;
-        Ok(follower_list)
-    }
-
-    pub async fn list_user_following(
-        &self,
-        user_handle: &str,
-        cursor: Option<&str>,
-        limit: Option<i64>,
-    ) -> Result<Vec<FollowList>, CustomError> {
-        let mut user = self.user_repo.find_user_by_handle(user_handle).await?;
-        user = self.validate_user(user).await?;
-
-        let (cursor, limit) = utils::cursor::preprocessing_cursor(cursor, limit);
-
-        let following_list =
-            self.follow_repo.list_following(user.id, cursor, limit).await?;
-        Ok(following_list)
     }
 
     async fn validate_user(&self, user: User) -> Result<User, CustomError> {

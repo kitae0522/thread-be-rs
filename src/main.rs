@@ -6,7 +6,6 @@ mod api;
 mod config;
 mod domain;
 mod error;
-mod middleware;
 mod repository;
 mod services;
 mod utils;
@@ -21,7 +20,7 @@ async fn main() {
         .connect(&config::env::envs().db_url)
         .await
         .expect("error creating database pool");
-    let app = config::router::routes_all(&db_pool).await;
+    let app = api::server::routes_all(&db_pool).await;
     let listener = tokio::net::TcpListener::bind(&"0.0.0.0:8080").await.unwrap();
 
     info!("LISTENING on {:?}\n", listener.local_addr());

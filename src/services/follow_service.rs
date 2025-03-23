@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::{
-    domain::model::user::User,
+    domain::model::{cursor_claims::CursorClaims, follow::FollowList, user::User},
     error::CustomError,
     repository::{follow_repo::FollowRepositoryTrait, user_repo::UserRepositoryTrait},
 };
@@ -48,12 +48,40 @@ impl FollowService {
         self.follow_repo.unfollow_user(user_id, target_user.id).await
     }
 
+    pub async fn list_user_follower(
+        &self,
+        user_handle: &str,
+        cursor: CursorClaims,
+        limit: i64,
+    ) -> Result<Vec<FollowList>, CustomError> {
+        let mut user = self.user_repo.find_user_by_handle(user_handle).await?;
+        user = self.validate_user(user).await?;
+
+        let follower_list =
+            self.follow_repo.list_follower(user.id, cursor, limit).await?;
+        Ok(follower_list)
+    }
+
+    pub async fn list_user_following(
+        &self,
+        user_handle: &str,
+        cursor: CursorClaims,
+        limit: i64,
+    ) -> Result<Vec<FollowList>, CustomError> {
+        let mut user = self.user_repo.find_user_by_handle(user_handle).await?;
+        user = self.validate_user(user).await?;
+
+        let following_list =
+            self.follow_repo.list_following(user.id, cursor, limit).await?;
+        Ok(following_list)
+    }
+
     async fn validate_follow(
         &self,
         user_id: i64,
         target_user_handle: &str,
     ) -> Result<User, CustomError> {
-        let user = self.user_repo.find_user_by_id(user_id).await?;        
+        let user = self.user_repo.find_user_by_id(user_id).await?;
         let target_user = self.user_repo.find_user_by_handle(target_user_handle).await?;
         if !user.is_profile_complete || !target_user.is_profile_complete {
             return Err(CustomError::ProfileNotCreated);
@@ -62,5 +90,12 @@ impl FollowService {
             return Err(CustomError::TrySelfFollow);
         }
         Ok(target_user)
+    }
+
+    async fn validate_user(&self, user: User) -> Result<User, CustomError> {
+        if !user.is_profile_complete {
+            return Err(CustomError::ProfileNotCreated);
+        }
+        Ok(user)
     }
 }

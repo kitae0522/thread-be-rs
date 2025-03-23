@@ -12,9 +12,10 @@ use sqlx::PgPool;
 use tracing::error;
 
 use crate::{
-    api::{thread_ctrl, user_ctrl},
+    api::middleware::log_middleware::mw_logging_request,
+    api::routes::{auth_routes, thread_routes, user_routes},
+    api::state::AppState,
     domain::dto::ErrorResponse,
-    middleware::log_middleware::mw_logging_request,
     repository::{
         follow_repo::FollowRepository, thread_repo::ThreadRepository,
         user_repo::UserRepository, views_repo::ViewsRepository,
@@ -25,8 +26,6 @@ use crate::{
         user_service::UserService, votes_service::VotesService,
     },
 };
-
-use super::app_state::AppState;
 
 fn di(db_pool: &PgPool) -> AppState {
     let db_pool = Arc::new(db_pool.clone());
@@ -57,8 +56,10 @@ pub async fn routes_all(db_pool: &PgPool) -> Router {
 
     let router_all = Router::new()
         .route("/ping", get(health_check_handler))
-        .nest("/user", user_ctrl::routes(app_state.clone()).await)
-        .nest("/thread", thread_ctrl::routes(app_state.clone()).await);
+        .nest("/auth", auth_routes::routes())
+        .nest("/user", user_routes::routes())
+        .nest("/thread", thread_routes::routes())
+        .with_state(app_state);
 
     let app = Router::new()
         .nest("/api", router_all)
