@@ -5,11 +5,9 @@ use axum::{
     routing::{delete, get, post, put},
     Extension, Json, Router,
 };
-use sqlx::PgPool;
-use std::sync::Arc;
 
 use crate::{
-    config::app_state::UserState,
+    config::app_state::AppState,
     domain::{
         dto::{
             user::{RequestSignin, RequestSignup, RequestUpsertProfile},
@@ -19,33 +17,22 @@ use crate::{
     },
     error::CustomError,
     middleware::auth_middleware::mw_require_auth,
-    repository::{follow_repo::FollowRepository, user_repo::UserRepository},
-    services::{follow_service::FollowService, user_service::UserService},
 };
 
-pub fn di(db_pool: &PgPool) -> UserState {
-    let db_pool = Arc::new(db_pool.clone());
-
-    let user_repo = Arc::new(UserRepository::new(db_pool.clone()));
-    let follow_repo = Arc::new(FollowRepository::new(db_pool));
-
-    let user_service = Arc::new(UserService::new(user_repo.clone(), follow_repo.clone()));
-    let follow_service = Arc::new(FollowService::new(user_repo, follow_repo));
-
-    UserState { user_service, follow_service }
-}
-
-pub async fn routes(state: UserState) -> Router {
+pub async fn routes(state: AppState) -> Router {
     let accessible_router = Router::new()
         .route("/signup", post(signup))
         .route("/signin", post(signin))
         .route("/{handle}", get(get_user))
+        .route("/{handle}/thread", get(list_thread_by_user_handle))
         .route("/{handle}/followers", get(list_user_follower))
         .route("/{handle}/following", get(list_user_following));
 
     let restricted_router = Router::new()
         .route("/me", get(me))
         .route("/me/profile", put(upsert_profile))
+        .route("/me/thread/upvoted", get(list_upvoted_thread))
+        .route("/me/thread/downvoted", get(list_downvoted_thread))
         .route("/{target_user_handle}/follow", delete(unfollow).post(follow))
         .layer(middleware::from_fn(mw_require_auth));
 
@@ -55,7 +42,7 @@ pub async fn routes(state: UserState) -> Router {
 
 // POST api/user/signup
 pub async fn signup(
-    State(state): State<UserState>,
+    State(state): State<AppState>,
     Json(signup_dto): Json<RequestSignup>,
 ) -> Result<impl IntoResponse, CustomError> {
     match state.user_service.signup(signup_dto).await {
@@ -66,7 +53,7 @@ pub async fn signup(
 
 // POST api/user/signin
 pub async fn signin(
-    State(state): State<UserState>,
+    State(state): State<AppState>,
     Json(signin_dto): Json<RequestSignin>,
 ) -> Result<impl IntoResponse, CustomError> {
     match state.user_service.signin(signin_dto).await {
@@ -77,7 +64,7 @@ pub async fn signin(
 
 // GET api/user/me
 pub async fn me(
-    State(state): State<UserState>,
+    State(state): State<AppState>,
     Extension(token_context): Extension<JwtClaims>,
 ) -> Result<impl IntoResponse, CustomError> {
     match state.user_service.me(token_context.id).await {
@@ -90,7 +77,7 @@ pub async fn me(
 
 // PUT api/user/me/profile
 pub async fn upsert_profile(
-    State(state): State<UserState>,
+    State(state): State<AppState>,
     Extension(token_context): Extension<JwtClaims>,
     Json(profile_dto): Json<RequestUpsertProfile>,
 ) -> Result<impl IntoResponse, CustomError> {
@@ -105,7 +92,7 @@ pub async fn upsert_profile(
 
 // GET api/user/{handle}
 pub async fn get_user(
-    State(state): State<UserState>,
+    State(state): State<AppState>,
     Path(handle): Path<String>,
 ) -> Result<impl IntoResponse, CustomError> {
     match state.user_service.get_user(&handle).await {
@@ -117,9 +104,25 @@ pub async fn get_user(
     }
 }
 
+// GET api/user/{handle}/thread
+pub async fn list_thread_by_user_handle(
+    State(state): State<AppState>,
+    Path(user_handle): Path<String>,
+    Query(params): Query<RequestCursorParmas>,
+) -> Result<impl IntoResponse, CustomError> {
+    let user_thread_list = state
+        .thread_service
+        .list_thread_by_user_handle(&user_handle, params.cursor.as_deref(), params.limit)
+        .await?;
+    Ok(Json(SuccessResponse::new(
+        "Success to fetch user based thread list",
+        Some(user_thread_list),
+    )))
+}
+
 // GET api/user/{handle}/followers
 pub async fn list_user_follower(
-    State(state): State<UserState>,
+    State(state): State<AppState>,
     Path(handle): Path<String>,
     Query(params): Query<RequestCursorParmas>,
 ) -> Result<impl IntoResponse, CustomError> {
@@ -138,7 +141,7 @@ pub async fn list_user_follower(
 
 // GET api/user/{handle}/following
 pub async fn list_user_following(
-    State(state): State<UserState>,
+    State(state): State<AppState>,
     Path(handle): Path<String>,
     Query(params): Query<RequestCursorParmas>,
 ) -> Result<impl IntoResponse, CustomError> {
@@ -155,9 +158,55 @@ pub async fn list_user_following(
     }
 }
 
+// GET api/user/me/upvoted
+pub async fn list_upvoted_thread(
+    State(state): State<AppState>,
+    Extension(token_context): Extension<JwtClaims>,
+    Query(params): Query<RequestCursorParmas>,
+) -> Result<impl IntoResponse, CustomError> {
+    match state
+        .thread_service
+        .list_upvoted_thread(
+            token_context.id,
+            params.cursor.as_deref(),
+            params.limit,
+        )
+        .await
+    {
+        Ok(upvoted_threads) => Ok(Json(SuccessResponse::new(
+            "Success to fetch upvoted thread list",
+            Some(upvoted_threads),
+        ))),
+        Err(err) => Err(err),
+    }
+}
+
+// GET api/user/{handle}/downvoted
+pub async fn list_downvoted_thread(
+    State(state): State<AppState>,
+    Extension(token_context): Extension<JwtClaims>,
+    Query(params): Query<RequestCursorParmas>,
+) -> Result<impl IntoResponse, CustomError> {
+    match state
+        .thread_service
+        .list_downvoted_thread(
+            token_context.id,
+            params.cursor.as_deref(),
+            params.limit,
+        )
+        .await
+    {
+        Ok(downvoted_threads) => Ok(Json(SuccessResponse::new(
+            "Success to fetch downvoted thread list",
+            Some(downvoted_threads),
+        ))),
+        Err(err) => Err(err),
+    }
+}
+
 // POST api/user/{target_user_handle}/follow
 pub async fn follow(
-    State(state): State<UserState>,
+    State(state): State<AppState>,
     Extension(token_context): Extension<JwtClaims>,
     Path(target_user_handle): Path<String>,
 ) -> Result<impl IntoResponse, CustomError> {
@@ -175,9 +224,9 @@ pub async fn follow(
     }
 }
 
-// DELETE api/user/{target_user_handle}/follow
+// DELETE api/user/{target_user_handle}/unfollow
 pub async fn unfollow(
-    State(state): State<UserState>,
+    State(state): State<AppState>,
     Extension(token_context): Extension<JwtClaims>,
     Path(target_user_handle): Path<String>,
 ) -> Result<impl IntoResponse, CustomError> {

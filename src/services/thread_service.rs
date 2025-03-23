@@ -9,13 +9,17 @@ use crate::{
         model::cursor_claims::CursorClaims,
     },
     error::CustomError,
-    repository::{thread_repo::ThreadRepositoryTrait, user_repo::UserRepositoryTrait},
+    repository::{
+        thread_repo::ThreadRepositoryTrait, user_repo::UserRepositoryTrait,
+        votes_repo::VotesRepositoryTrait,
+    },
     utils,
 };
 
 pub struct ThreadService {
     user_repo: Arc<dyn UserRepositoryTrait>,
     thread_repo: Arc<dyn ThreadRepositoryTrait>,
+    votes_repo: Arc<dyn VotesRepositoryTrait>,
 }
 
 // Implements cursor-based pagination.
@@ -31,8 +35,9 @@ impl ThreadService {
     pub fn new(
         user_repo: Arc<dyn UserRepositoryTrait>,
         thread_repo: Arc<dyn ThreadRepositoryTrait>,
+        votes_repo: Arc<dyn VotesRepositoryTrait>,
     ) -> Self {
-        Self { user_repo, thread_repo }
+        Self { user_repo, thread_repo, votes_repo }
     }
 
     pub async fn create_thread(
@@ -70,7 +75,7 @@ impl ThreadService {
         user_handle: &str,
         cursor: Option<&str>,
         limit: Option<i64>,
-    ) -> Result<Vec<ResponseThreadWithUserProfile>, CustomError> {
+    ) -> Result<Vec<ResponseThread>, CustomError> {
         let user = self.user_repo.find_user_by_handle(user_handle).await?;
         if !user.is_profile_complete {
             return Err(CustomError::ProfileNotCreated);
@@ -80,6 +85,45 @@ impl ThreadService {
 
         let thread_list =
             self.thread_repo.list_thread_by_user_id(user.id, cursor, limit).await?;
+        // let enrich_thread_list = self.enrich_thread_list_with_user_profile(thread_list).await?;
+        Ok(thread_list)
+    }
+
+    pub async fn list_upvoted_thread(
+        &self,
+        user_id: i64,
+        cursor: Option<&str>,
+        limit: Option<i64>,
+    ) -> Result<Vec<ResponseThreadWithUserProfile>, CustomError> {
+        let user = self.user_repo.find_user_by_id(user_id).await?;
+        if !user.is_profile_complete {
+            return Err(CustomError::ProfileNotCreated);
+        }
+
+        let (cursor, limit) = utils::cursor::preprocessing_cursor(cursor, limit);
+
+        let thread_list =
+            self.votes_repo.list_upvoted_thread(user.id, cursor, limit).await?;
+        let enrich_thread_list =
+            self.enrich_thread_list_with_user_profile(thread_list).await?;
+        Ok(enrich_thread_list)
+    }
+
+    pub async fn list_downvoted_thread(
+        &self,
+        user_id: i64,
+        cursor: Option<&str>,
+        limit: Option<i64>,
+    ) -> Result<Vec<ResponseThreadWithUserProfile>, CustomError> {
+        let user = self.user_repo.find_user_by_id(user_id).await?;
+        if !user.is_profile_complete {
+            return Err(CustomError::ProfileNotCreated);
+        }
+
+        let (cursor, limit) = utils::cursor::preprocessing_cursor(cursor, limit);
+
+        let thread_list =
+            self.votes_repo.list_downvoted_thread(user.id, cursor, limit).await?;
         let enrich_thread_list =
             self.enrich_thread_list_with_user_profile(thread_list).await?;
         Ok(enrich_thread_list)
@@ -191,7 +235,7 @@ impl ThreadService {
     ) -> Result<ResponseThreadWithUserProfile, CustomError> {
         let user = self.user_repo.find_user_by_id(thread.user_id).await?;
         let user_profile = UserProfile {
-            id: thread.id,
+            id: thread.user_id,
             handle: user.handle.unwrap_or_default(),
             profile_img: user.profile_img_url.unwrap_or_default(),
         };

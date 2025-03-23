@@ -25,6 +25,8 @@ pub enum CustomError {
     TrySelfFollow,
     AlreadyFollowed,
     PasswordMismatch,
+    AlreadyReacted,
+    NotReacted,
 }
 
 impl CustomError {
@@ -84,6 +86,14 @@ impl IntoResponse for CustomError {
             CustomError::PasswordMismatch => {
                 self.response_helper(StatusCode::BAD_REQUEST, "Password not matched")
             }
+            CustomError::AlreadyReacted => self.response_helper(
+                StatusCode::BAD_REQUEST,
+                "You have already reacted that thread",
+            ),
+            CustomError::NotReacted => self.response_helper(
+                StatusCode::BAD_REQUEST,
+                "You have not reacted this thread. Please check your reacting list.",
+            ),
         }
     }
 }
