@@ -17,7 +17,8 @@ use crate::{
     middleware::log_middleware::mw_logging_request,
     repository::{
         follow_repo::FollowRepository, thread_repo::ThreadRepository,
-        user_repo::UserRepository, votes_repo::VotesRepository,
+        user_repo::UserRepository, views_repo::ViewsRepository,
+        votes_repo::VotesRepository,
     },
     services::{
         follow_service::FollowService, thread_service::ThreadService,
@@ -34,12 +35,14 @@ fn di(db_pool: &PgPool) -> AppState {
     let thread_repo = Arc::new(ThreadRepository::new(Arc::clone(&db_pool)));
     let follow_repo = Arc::new(FollowRepository::new(Arc::clone(&db_pool)));
     let votes_repo = Arc::new(VotesRepository::new(Arc::clone(&db_pool)));
+    let views_repo = Arc::new(ViewsRepository::new(Arc::clone(&db_pool)));
 
     let user_service = Arc::new(UserService::new(user_repo.clone(), follow_repo.clone()));
     let thread_service = Arc::new(ThreadService::new(
         user_repo.clone(),
         thread_repo.clone(),
         votes_repo.clone(),
+        views_repo.clone(),
     ));
     let follow_service =
         Arc::new(FollowService::new(user_repo.clone(), follow_repo.clone()));

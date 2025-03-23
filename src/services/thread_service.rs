@@ -11,7 +11,7 @@ use crate::{
     error::CustomError,
     repository::{
         thread_repo::ThreadRepositoryTrait, user_repo::UserRepositoryTrait,
-        votes_repo::VotesRepositoryTrait,
+        views_repo::ViewsRepositoryTrait, votes_repo::VotesRepositoryTrait,
     },
     utils,
 };
@@ -20,6 +20,7 @@ pub struct ThreadService {
     user_repo: Arc<dyn UserRepositoryTrait>,
     thread_repo: Arc<dyn ThreadRepositoryTrait>,
     votes_repo: Arc<dyn VotesRepositoryTrait>,
+    views_repo: Arc<dyn ViewsRepositoryTrait>,
 }
 
 // Implements cursor-based pagination.
@@ -36,8 +37,9 @@ impl ThreadService {
         user_repo: Arc<dyn UserRepositoryTrait>,
         thread_repo: Arc<dyn ThreadRepositoryTrait>,
         votes_repo: Arc<dyn VotesRepositoryTrait>,
+        views_repo: Arc<dyn ViewsRepositoryTrait>,
     ) -> Self {
-        Self { user_repo, thread_repo, votes_repo }
+        Self { user_repo, thread_repo, votes_repo, views_repo }
     }
 
     pub async fn create_thread(
@@ -54,9 +56,9 @@ impl ThreadService {
         &self,
         id: i64,
     ) -> Result<ResponseThreadWithUserProfile, CustomError> {
+        let _ = self.views_repo.view_thread(id).await?;
         let thread = self.thread_repo.get_thread_by_id(id).await?;
         let thread = self.enrich_thread_with_user_profile(thread).await?;
-
         Ok(thread)
     }
 
@@ -72,7 +74,6 @@ impl ThreadService {
             .list_subthread_by_parent_id(parent_id, cursor, limit)
             .await?;
         let subthread = self.enrich_thread_list_with_user_profile(subthread).await?;
-
         Ok(subthread)
     }
 
