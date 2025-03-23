@@ -3,7 +3,7 @@ use std::sync::Arc;
 use crate::{
     domain::{
         dto::thread::{
-            RequestCreateThread, RequestUpdateThread, ResponseThread, ResponseThreadTree,
+            RequestCreateThread, RequestUpdateThread, ResponseThread,
             ResponseThreadWithUserProfile, UserProfile,
         },
         model::cursor_claims::CursorClaims,
@@ -53,21 +53,27 @@ impl ThreadService {
     pub async fn get_thread_by_id(
         &self,
         id: i64,
-        cursor: Option<&str>,
-        limit: Option<i64>,
-    ) -> Result<ResponseThreadTree, CustomError> {
-        let (cursor, limit) = utils::cursor::preprocessing_cursor(cursor, limit);
-
+    ) -> Result<ResponseThreadWithUserProfile, CustomError> {
         let thread = self.thread_repo.get_thread_by_id(id).await?;
         let thread = self.enrich_thread_with_user_profile(thread).await?;
 
+        Ok(thread)
+    }
+
+    pub async fn list_subthread_by_parent_id(
+        &self,
+        parent_id: i64,
+        cursor: Option<&str>,
+        limit: Option<i64>,
+    ) -> Result<Vec<ResponseThreadWithUserProfile>, CustomError> {
+        let (cursor, limit) = utils::cursor::preprocessing_cursor(cursor, limit);
         let subthread = self
             .thread_repo
-            .list_subthread_by_parent_id(thread.id, cursor, limit)
+            .list_subthread_by_parent_id(parent_id, cursor, limit)
             .await?;
         let subthread = self.enrich_thread_list_with_user_profile(subthread).await?;
 
-        Ok(ResponseThreadTree { thread, subthread })
+        Ok(subthread)
     }
 
     pub async fn list_thread_by_user_handle(

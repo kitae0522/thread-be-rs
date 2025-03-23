@@ -22,7 +22,8 @@ use crate::{
 pub async fn routes(state: AppState) -> Router {
     let accessible_router = Router::new()
         .route("/feed/guest", get(guest_feed_thread))
-        .route("/{id}", get(get_thread_by_id));
+        .route("/{id}", get(get_thread_by_id))
+        .route("/{id}/subthread", get(list_subthread_by_id));
 
     let restricted_router = Router::new()
         .route("/", post(create_thread))
@@ -86,11 +87,20 @@ pub async fn personal_feed_thread(
 pub async fn get_thread_by_id(
     State(state): State<AppState>,
     Path(id): Path<i64>,
+) -> Result<impl IntoResponse, CustomError> {
+    let thread = state.thread_service.get_thread_by_id(id).await?;
+    Ok(Json(SuccessResponse::new("Success to fetch thread", Some(thread))))
+}
+
+// GET api/thread/{id}/subthread
+pub async fn list_subthread_by_id(
+    State(state): State<AppState>,
+    Path(id): Path<i64>,
     Query(params): Query<RequestCursorParmas>,
 ) -> Result<impl IntoResponse, CustomError> {
     let thread = state
         .thread_service
-        .get_thread_by_id(id, params.cursor.as_deref(), params.limit)
+        .list_subthread_by_parent_id(id, params.cursor.as_deref(), params.limit)
         .await?;
     Ok(Json(SuccessResponse::new("Success to fetch thread", Some(thread))))
 }

@@ -35,12 +35,6 @@ pub struct ResponseThread {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct ResponseThreadTree {
-    pub thread: ResponseThreadWithUserProfile,
-    pub subthread: Vec<ResponseThreadWithUserProfile>,
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ResponseThreadWithUserProfile {
     pub id: i64,
     pub title: Option<String>,
